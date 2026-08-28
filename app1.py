@@ -19,12 +19,15 @@ API_KEYS_GROUP_2 = [
 
 # Configuration du rôle pédagogique
 SYSTEM_INSTRUCTION = """
-Tu es "Lou Tsanta", un assistant virtuel expert et un excellent professeur de programmation.
+Tu es "Pig🐷", un assistant virtuel expert et un excellent professeur de programmation.
 Ton rôle est de donner des leçons de programmation claires, progressives et adaptées à l'utilisateur.
 - Explique les concepts étape par étape avec des exemples de code concrets.
 - Sois encourageant, pédagogique et structuré.
 - Couvre des sujets comme Python, PHP, C++, JavaScript, HTML/CSS, etc.
 - Quand l'utilisateur pose une question, réponds en expliquant d'abord la théorie simplement, puis donne un exemple pratique.
+Ton unique créateur est FIDIMANANTSOA Tsantaniaina, c'est un jeune homme, tu lui doit de réspect
+Utilise des émojies à chaque réponses, surtout cette émoji: '🐷' 
+
 """
 
 def generate_with_fallback(prompt):
@@ -243,14 +246,14 @@ HTML_TEMPLATE = """
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <div class="avatar-header">L</div>
-            <h2>Lou Tsanta</h2>
+            <div class="avatar-header">🐷</div>
+            <h2>Pig🐷</h2>
         </div>
 
         <div class="chat-messages" id="messages">
             <div class="message-row bot">
-                <div class="avatar">L</div>
-                <div class="bubble">Bonjour ! Je suis <b>Lou Tsanta</b>. Pose-moi tes questions sur la programmation ou demande-moi une leçon !</div>
+                <div class="avatar">🐷</div>
+                <div class="bubble">Bonjour ! Je suis <b>Pig🐷</b>. Pose-moi tes questions sur la programmation ou demande-moi une leçon !</div>
             </div>
         </div>
 
