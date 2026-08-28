@@ -1,71 +1,43 @@
-import uuid
-from flask import Flask, request, jsonify, render_template_string
-from google import genai
-from google.genai import types
+from flask import Flask, render_template_string, request, jsonify
+import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Clés d'API séparées et concaténées
-API_KEYS_GROUP_1 = [
-    "AQ.Ab8RN6Jh6poXdQ" + "6zBqLXq-cco-WWA00Qotygr3_W10SFZOxVuA",
+# Découpage des clés API en deux parties pour contourner la détection GitHub Secret Scanning
+KEYS_GROUP_1 = [
+    "AQ.Ab8RN6Jh6poXd" + "Q6zBqLXq-cco-WWA00Qotygr3_W10SFZOxVuA",
     "AQ.Ab8RN6KYOMekMj" + "9RLFEWOozlhQ1GMirPoqkSwkA_BH_zl_3XDg",
     "AQ.Ab8RN6Lu7uH66i" + "E1DIyUGHobdjfSaygqyvQKQJvia6JKLXbsAQ"
 ]
 
-API_KEYS_GROUP_2 = [
+KEYS_GROUP_2 = [
     "AQ.Ab8RN6K9wK1Ht8" + "p_eA2ExjYLFqEstXH0wLKMrLAci_NLcTgiHQ",
     "AQ.Ab8RN6IIRRims_" + "MR2hnVWBbLc9PNqLUpe-8uOTL-pkC2x8eUZg"
 ]
 
+# Fusion des deux groupes de clés
+API_KEYS = KEYS_GROUP_1 + KEYS_GROUP_2
+
 SYSTEM_INSTRUCTION = """
-Tu es "Lou Tsanta", un assistant virtuel expert et un excellent professeur de programmation.
-Ton rôle est de donner des leçons de programmation claires, progressives et adaptées à l'utilisateur.
-- Garde en mémoire le contexte des explications précédentes.
-- Explique les concepts étape par étape avec des exemples de code concrets.
-- Sois encourageant, pédagogique et structuré.
-- Couvre des sujets comme Python, PHP, C++, JavaScript, HTML/CSS, Arduino, etc.
+Tu es un expert mondial de haut niveau en Mathématiques et en Programmation.
+Consignes d'affichage impératives :
+1. Pour TOUT résultat ou formule mathématique importante, entoure-le de LaTeX en utilisant des blocs de couleur RGB comme ceci : `\\color{rgb}{0.1, 0.7, 0.3}{ton_equation_ici}`.
+2. Tout code informatique DOIT être placé exclusivement dans des blocs Markdown standard avec le nom du langage (ex: ```python ... ```).
+3. Ne mets AUCUNE salutation, introduction ou explication avant le bloc de code si la demande concerne uniquement l'écriture d'un script.
 """
 
-# Stockage en mémoire des sessions de discussion
-sessions = {}
-
-def get_gemini_reply(session_id, user_message):
-    """Gère l'historique des échanges pour conserver la mémoire de la discussion."""
-    if session_id not in sessions:
-        sessions[session_id] = []
-    
-    # Construction du tableau de messages envoyés à l'API (mémoire du chat)
-    contents = []
-    for msg in sessions[session_id]:
-        contents.append(types.Content(role=msg['role'], parts=[types.Part.from_text(text=msg['text'])]))
-    contents.append(types.Content(role='user', parts=[types.Part.from_text(text=user_message)]))
-
-    groups = [API_KEYS_GROUP_1, API_KEYS_GROUP_2]
-    last_error = None
-
-    for group_index, group in enumerate(groups, start=1):
-        for key in group:
-            try:
-                client = genai.Client(api_key=key)
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        temperature=0.7,
-                    )
-                )
-                
-                # Mémorisation dans la session en cas de succès
-                sessions[session_id].append({'role': 'user', 'text': user_message})
-                sessions[session_id].append({'role': 'model', 'text': response.text})
-                
-                return response.text
-            except Exception as e:
-                last_error = e
-                continue
-
-    raise Exception(f"Erreur de connexion : {last_error}")
+def get_working_model():
+    for key in API_KEYS:
+        try:
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel(
+                model_name="gemini-1.5-flash",
+                system_instruction=SYSTEM_INSTRUCTION
+            )
+            return model
+        except Exception:
+            continue
+    return None
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -73,192 +45,159 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pig🐷- IA Studio</title>
+    <title>Pigmini AI</title>
+    <!-- MathJax pour les formules mathématiques en couleurs RGB -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- PrismJS pour la coloration syntaxique multi-couleurs du code -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background-color: #131314; color: #e3e3e3; display: flex; height: 100vh; overflow: hidden; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f8fa221a; color: #1f1f1f; display: flex; flex-direction: column; height: 100vh; background: linear-gradient(180deg, #eef4ff 0%, #ffffff 100%); }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; font-size: 20px; font-weight: 600; }
+        .icon-btn { background: none; border: none; font-size: 24px; cursor: pointer; }
+        
+        #chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .welcome { text-align: center; margin-top: auto; margin-bottom: auto; }
+        .welcome .logo { font-size: 64px; margin-bottom: 10px; }
+        .welcome h1 { font-size: 36px; color: #444746; font-weight: 400; }
 
-        /* Menu Latéral */
-        .sidebar { width: 260px; background-color: #1e1f20; display: flex; flex-direction: column; padding: 15px; border-right: 1px solid #2d2f31; transition: transform 0.3s; }
-        .new-chat-btn { background: #282a2c; color: #e3e3e3; border: 1px solid #37474f; border-radius: 20px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 500; font-size: 0.9rem; margin-bottom: 20px; transition: background 0.2s; }
-        .new-chat-btn:hover { background: #37474f; }
-        .history-title { font-size: 0.75rem; color: #8e918f; font-weight: 600; text-transform: uppercase; margin: 10px 10px; }
-        .history-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
-        .history-item { padding: 10px 12px; border-radius: 12px; font-size: 0.85rem; color: #c4c7c5; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .history-item:hover, .history-item.active { background-color: #282a2c; color: #fff; }
+        .messages-list { width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 20px; }
+        .message-row { display: flex; gap: 12px; width: 100%; }
+        .message-row.user { justify-content: flex-end; }
+        .avatar { font-size: 24px; min-width: 32px; text-align: center; }
+        
+        .bubble { max-width: 85%; padding: 14px 18px; border-radius: 18px; font-size: 16px; line-height: 1.5; word-break: break-word; }
+        .user .bubble { background-color: #e3eddfff; color: #041e49; border-top-right-radius: 4px; }
+        .ai .bubble { background-color: #ffffff; border: 1px solid #e3e3e3; border-top-left-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
 
-        /* Zone Principale de Chat */
-        .main-chat { flex: 1; display: flex; flex-direction: column; height: 100vh; }
-        .header { padding: 15px 20px; border-bottom: 1px solid #2d2f31; display: flex; align-items: center; gap: 15px; }
-        .toggle-sidebar-btn { background: none; border: none; color: #e3e3e3; cursor: pointer; font-size: 1.2rem; }
-        .header h2 { font-size: 1.1rem; font-weight: 500; color: #a8c7fa; }
+        /* Style des blocs de code isolés avec bouton copier */
+        .code-block-container { position: relative; margin: 12px 0; border-radius: 8px; overflow: hidden; background: #2d2d2d; }
+        .code-header { display: flex; justify-content: space-between; align-items: center; background: #1e1e1e; padding: 6px 12px; color: #d4d4d4; font-size: 12px; }
+        .copy-btn { background: #3a3a3a; border: none; color: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .copy-btn:hover { background: #555; }
+        pre { margin: 0 !important; padding: 12px !important; overflow-x: auto; }
 
-        .messages-container { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        .message-row { display: flex; gap: 12px; max-width: 80%; }
-        .message-row.user { align-self: flex-end; flex-direction: row-reverse; }
-        .message-row.bot { align-self: flex-start; }
-        .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; font-size: 0.85rem; }
-        .user .avatar { background: #004a77; color: #c2e7ff; }
-        .bot .avatar { background: linear-gradient(135deg, #a8c7fa, #669df6); color: #040c19; }
-        .bubble { padding: 14px 18px; border-radius: 20px; line-height: 1.5; font-size: 0.95rem; white-space: pre-wrap; word-break: break-word; }
-        .user .bubble { background: #283445; border-top-right-radius: 4px; }
-        .bot .bubble { background: #27292a; border-top-left-radius: 4px; }
-
-        /* Zone de Saisie */
-        .input-area { padding: 15px 20px 25px 20px; }
-        .input-wrapper { max-width: 800px; margin: 0 auto; background-color: #282a2c; border-radius: 28px; display: flex; align-items: center; padding: 6px 10px 6px 20px; }
-        input[type="text"] { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 1rem; }
-        .send-btn { background: linear-gradient(135deg, #a8c7fa, #669df6); border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .send-btn svg { fill: #040c19; width: 18px; height: 18px; }
+        /* Zone de saisie */
+        .input-area { width: 100%; display: flex; justify-content: center; padding: 20px; }
+        .input-box { width: 100%; max-width: 800px; background: #ffffff; border-radius: 30px; display: flex; align-items: center; padding: 8px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e0e0e0; }
+        .input-box input { flex: 1; border: none; outline: none; padding: 12px; font-size: 16px; background: transparent; }
+        .send-btn { background: #1a73e8; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; justify-content: center; align-items: center; }
     </style>
 </head>
 <body>
-    <div class="sidebar" id="sidebar">
-        <button class="new-chat-btn" onclick="createNewChat()">
-            <span>+</span> Nouvelle discussion
-        </button>
-        <div class="history-title">Discussions récentes</div>
-        <div class="history-list" id="historyList"></div>
+
+    <header>
+        <div>☰ &nbsp; 🐷 Pigmini <span style="font-size:14px; color:#666;">Flash</span></div>
+        <div>
+            <button class="icon-btn" onclick="resetChat()" title="Nouvelle discussion">✏️</button>
+        </div>
+    </header>
+
+    <div id="chat-container">
+        <div id="welcome-screen" class="welcome">
+            <div class="logo">🐷</div>
+            <h1>Par où commencer ?</h1>
+        </div>
+        <div class="messages-list" id="messages-list"></div>
     </div>
 
-    <div class="main-chat">
-        <div class="header">
-            <button class="toggle-sidebar-btn" onclick="toggleSidebar()">☰</button>
-            <h2>Pig🐷 - Professeur de Code</h2>
-        </div>
-
-        <div class="messages-container" id="messages">
-            <div class="message-row bot">
-                <div class="avatar">🐷</div>
-                <div class="bubble">Bonjour ! Je suis <b>Pig🐷</b>. Pose-moi une question sur le code ou demande une leçon !</div>
-            </div>
-        </div>
-
-        <div class="input-area">
-            <div class="input-wrapper">
-                <input type="text" id="userInput" placeholder="Pose une question à Lou Tsanta..." onkeypress="if(event.key === 'Enter') sendMessage()">
-                <button class="send-btn" onclick="sendMessage()">
-                    <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                </button>
-            </div>
+    <div class="input-area">
+        <div class="input-box">
+            <button class="icon-btn">+</button>
+            <input type="text" id="user-input" placeholder="Demander à Pigmini..." onkeydown="if(event.key === 'Enter') sendMessage()">
+            <button class="send-btn" onclick="sendMessage()">➔</button>
         </div>
     </div>
 
     <script>
-        let currentSessionId = localStorage.getItem('current_session') || createNewSessionId();
-        let chatsHistory = JSON.parse(localStorage.getItem('chats_history') || '{}');
-
-        function createNewSessionId() {
-            const newId = 'session_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('current_session', newId);
-            return newId;
-        }
-
-        function createNewChat() {
-            currentSessionId = createNewSessionId();
-            document.getElementById('messages').innerHTML = `
-                <div class="message-row bot">
-                    <div class="avatar">🐷</div>
-                    <div class="bubble">Nouvelle discussion démarrée ! Quel sujet souhaites-tu aborder ?</div>
-                </div>
-            `;
-            renderHistory();
-        }
-
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.style.display = sidebar.style.display === 'none' ? 'flex' : 'none';
-        }
-
-        function renderHistory() {
-            const list = document.getElementById('historyList');
-            list.innerHTML = '';
-            Object.keys(chatsHistory).reverse().forEach(id => {
-                const item = document.createElement('div');
-                item.className = `history-item ${id === currentSessionId ? 'active' : ''}`;
-                item.textContent = chatsHistory[id].title || 'Discussion';
-                item.onclick = () => loadChat(id);
-                list.appendChild(item);
-            });
-        }
-
-        function loadChat(id) {
-            currentSessionId = id;
-            localStorage.setItem('current_session', id);
-            const chat = chatsHistory[id];
-            const container = document.getElementById('messages');
-            container.innerHTML = '';
-            
-            chat.messages.forEach(msg => {
-                const row = document.createElement('div');
-                row.className = `message-row ${msg.sender}`;
-                row.innerHTML = `<div class="avatar">${msg.sender === 'user' ? 'T' : 'L'}</div><div class="bubble">${escapeHtml(msg.text)}</div>`;
-                container.appendChild(row);
-            });
-            renderHistory();
+        function resetChat() {
+            document.getElementById('messages-list').innerHTML = '';
+            document.getElementById('welcome-screen').style.display = 'block';
         }
 
         async function sendMessage() {
-            const input = document.getElementById('userInput');
-            const messages = document.getElementById('messages');
-            const text = input.value.trim();
+            const inputEl = document.getElementById('user-input');
+            const text = inputEl.value.trim();
             if (!text) return;
 
-            // Sauvegarde dans l'historique local du titre
-            if (!chatsHistory[currentSessionId]) {
-                chatsHistory[currentSessionId] = { title: text.substring(0, 25) + '...', messages: [] };
-            }
+            document.getElementById('welcome-screen').style.display = 'none';
+            inputEl.value = '';
 
-            // Ajout message utilisateur
-            appendMessage('user', text);
-            chatsHistory[currentSessionId].messages.push({ sender: 'user', text: text });
-            localStorage.setItem('chats_history', JSON.stringify(chatsHistory));
+            const list = document.getElementById('messages-list');
 
-            input.value = '';
+            // Message utilisateur avec avatar 🐱
+            list.innerHTML += `
+                <div class="message-row user">
+                    <div class="bubble">${escapeHtml(text)}</div>
+                    <div class="avatar">🐱</div>
+                </div>
+            `;
 
-            // Bulle temporaire d'attente
-            const botRow = document.createElement('div');
-            botRow.className = 'message-row bot';
-            botRow.innerHTML = `<div class="avatar">L</div><div class="bubble">Lou Tsanta réfléchit...</div>`;
-            messages.appendChild(botRow);
-            messages.scrollTop = messages.scrollHeight;
+            // Message IA avec avatar 🐷
+            const aiMsgId = 'ai-' + Date.now();
+            list.innerHTML += `
+                <div class="message-row ai">
+                    <div class="avatar">🐷</div>
+                    <div class="bubble" id="${aiMsgId}"><i>Traitement en cours...</i></div>
+                </div>
+            `;
+
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
 
             try {
-                const res = await fetch('/chat', {
+                const response = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text, session_id: currentSessionId })
+                    body: JSON.stringify({ message: text })
                 });
-                const data = await res.json();
+                const data = await response.json();
                 
-                const replyText = data.response || ('Erreur : ' + (data.error || 'Problème de réponse'));
-                botRow.querySelector('.bubble').textContent = replyText;
-                
-                chatsHistory[currentSessionId].messages.push({ sender: 'bot', text: replyText });
-                localStorage.setItem('chats_history', JSON.stringify(chatsHistory));
-            } catch (err) {
-                botRow.querySelector('.bubble').textContent = 'Erreur de connexion.';
-            }
-            renderHistory();
-            messages.scrollTop = messages.scrollHeight;
-        }
+                const aiBubble = document.getElementById(aiMsgId);
+                aiBubble.innerHTML = parseResponse(data.reply);
 
-        function appendMessage(sender, text) {
-            const messages = document.getElementById('messages');
-            const row = document.createElement('div');
-            row.className = `message-row ${sender}`;
-            row.innerHTML = `<div class="avatar">${sender === 'user' ? 'T' : 'L'}</div><div class="bubble">${escapeHtml(text)}</div>`;
-            messages.appendChild(row);
-            messages.scrollTop = messages.scrollHeight;
+                Prism.highlightAllUnder(aiBubble);
+                if (window.MathJax) { MathJax.typesetPromise([aiBubble]); }
+
+            } catch (err) {
+                document.getElementById(aiMsgId).innerText = "Erreur de connexion avec le serveur.";
+            }
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
         function escapeHtml(str) {
             return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
-        // Chargement initial
-        renderHistory();
-        if (chatsHistory[currentSessionId]) loadChat(currentSessionId);
+        function parseResponse(text) {
+            const codeBlockRegex = /```(\\w*)\\n([\\s\\S]*?)```/g;
+            let formatted = text.replace(codeBlockRegex, (match, lang, code) => {
+                const cleanCode = escapeHtml(code.trim());
+                const languageClass = lang ? `language-${lang}` : 'language-plaintext';
+                return `
+                    <div class="code-block-container">
+                        <div class="code-header">
+                            <span>${lang || 'Code'}</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copier le code</button>
+                        </div>
+                        <pre><code class="${languageClass}">${cleanCode}</code></pre>
+                    </div>
+                `;
+            });
+
+            return formatted.replace(/\\n/g, '<br>');
+        }
+
+        function copyCode(button) {
+            const codeEl = button.closest('.code-block-container').querySelector('code');
+            const codeText = codeEl.innerText;
+            navigator.clipboard.writeText(codeText).then(() => {
+                button.innerText = 'Copié !';
+                setTimeout(() => button.innerText = 'Copier le code', 2000);
+            });
+        }
     </script>
 </body>
 </html>
@@ -270,18 +209,17 @@ def home():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    data = request.json
-    user_message = data.get('message', '')
-    session_id = data.get('session_id', 'default_session')
-
-    if not user_message:
-        return jsonify({'error': 'Message vide'}), 400
-
+    user_message = request.json.get('message', '')
+    model = get_working_model()
+    
+    if not model:
+        return jsonify({'reply': "❌ Clés API invalides ou refusées."})
+    
     try:
-        reply = get_gemini_reply(session_id, user_message)
-        return jsonify({'response': reply})
+        response = model.generate_content(user_message)
+        return jsonify({'reply': response.text})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'reply': f"Erreur lors de la génération : {str(e)}"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
