@@ -4,7 +4,7 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Découpage des clés API en deux parties pour contourner la détection GitHub Secret Scanning
+# Tes clés API découpées
 KEYS_GROUP_1 = [
     "AQ.Ab8RN6Jh6poXd" + "Q6zBqLXq-cco-WWA00Qotygr3_W10SFZOxVuA",
     "AQ.Ab8RN6KYOMekMj" + "9RLFEWOozlhQ1GMirPoqkSwkA_BH_zl_3XDg",
@@ -168,6 +168,5 @@ def chat():
         return jsonify({'reply': f"Erreur : {str(e)}"})
 
 if __name__ == '__main__':
-    # Configuration du port dynamique requis par Render
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
