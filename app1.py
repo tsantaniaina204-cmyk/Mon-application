@@ -277,7 +277,7 @@ HTML_TEMPLATE = """
             const userRow = document.createElement('div');
             userRow.className = 'message-row user';
             userRow.innerHTML = `
-                <div class="avatar">T</div>
+                <div class="avatar">🐭</div>
                 <div class="bubble">${escapeHtml(text)}</div>
             `;
             messages.appendChild(userRow);
@@ -289,7 +289,7 @@ HTML_TEMPLATE = """
             const botRow = document.createElement('div');
             botRow.className = 'message-row bot';
             botRow.innerHTML = `
-                <div class="avatar">L</div>
+                <div class="avatar">🐷</div>
                 <div class="bubble">En train de réfléchir...</div>
             `;
             messages.appendChild(botRow);
