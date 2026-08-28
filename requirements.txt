@@ -3,3 +3,6 @@ requests==2.31.0
 gunicorn==22.0.0
 flask
 google-genai
+flask
+google-generativeai
+gunicorn
