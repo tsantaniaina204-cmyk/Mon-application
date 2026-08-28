@@ -4,7 +4,7 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Tes clés API découpées
+# Découpage des chaînes
 KEYS_GROUP_1 = [
     "AQ.Ab8RN6Jh6poXd" + "Q6zBqLXq-cco-WWA00Qotygr3_W10SFZOxVuA",
     "AQ.Ab8RN6KYOMekMj" + "9RLFEWOozlhQ1GMirPoqkSwkA_BH_zl_3XDg",
@@ -26,18 +26,39 @@ Consignes d'affichage impératives :
 3. Ne mets AUCUNE salutation, introduction ou explication avant le bloc de code si la demande concerne uniquement l'écriture d'un script.
 """
 
-def get_working_model():
+# Liste des noms de modèles à tester en repli pour éviter les erreurs 404
+CANDIDATE_MODELS = [
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-pro",
+    "gemini-pro"
+]
+
+def generate_response(prompt_text):
+    """
+    Essaie chaque clé API et chaque nom de modèle valide jusqu'à obtenir une réponse.
+    """
     for key in API_KEYS:
         try:
             genai.configure(api_key=key)
-            model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
-                system_instruction=SYSTEM_INSTRUCTION
-            )
-            return model
+            for model_name in CANDIDATE_MODELS:
+                try:
+                    model = genai.GenerativeModel(
+                        model_name=model_name,
+                        system_instruction=SYSTEM_INSTRUCTION
+                    )
+                    response = model.generate_content(prompt_text)
+                    if response and response.text:
+                        return response.text
+                except Exception:
+                    continue
         except Exception:
             continue
-    return None
+            
+    return (
+        "⚠️ Vos jetons 'AQ.Ab8RN...' ne sont pas des clés d'API Google AI Studio valides (elles doivent commencer par 'AIzaSy...'). "
+        "Rendez-vous sur https://aistudio.google.com/ pour créer une vraie clé API gratuite et remplacez-la dans le code."
+    )
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -46,7 +67,9 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pigmini AI</title>
+    <!-- MathJax pour le rendu mathématique RGB -->
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- PrismJS pour la coloration du code -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
@@ -66,11 +89,13 @@ HTML_TEMPLATE = """
         .bubble { max-width: 85%; padding: 14px 18px; border-radius: 18px; font-size: 16px; line-height: 1.5; word-break: break-word; }
         .user .bubble { background-color: #e3eddfff; color: #041e49; border-top-right-radius: 4px; }
         .ai .bubble { background-color: #ffffff; border: 1px solid #e3e3e3; border-top-left-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        
         .code-block-container { position: relative; margin: 12px 0; border-radius: 8px; overflow: hidden; background: #2d2d2d; }
         .code-header { display: flex; justify-content: space-between; align-items: center; background: #1e1e1e; padding: 6px 12px; color: #d4d4d4; font-size: 12px; }
         .copy-btn { background: #3a3a3a; border: none; color: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
         .copy-btn:hover { background: #555; }
         pre { margin: 0 !important; padding: 12px !important; overflow-x: auto; }
+        
         .input-area { width: 100%; display: flex; justify-content: center; padding: 20px; }
         .input-box { width: 100%; max-width: 800px; background: #ffffff; border-radius: 30px; display: flex; align-items: center; padding: 8px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e0e0e0; }
         .input-box input { flex: 1; border: none; outline: none; padding: 12px; font-size: 16px; background: transparent; }
@@ -158,14 +183,8 @@ def home():
 @app.route('/chat', methods=['POST'])
 def chat():
     user_message = request.json.get('message', '')
-    model = get_working_model()
-    if not model:
-        return jsonify({'reply': "❌ Clés API invalides ou expirées."})
-    try:
-        response = model.generate_content(user_message)
-        return jsonify({'reply': response.text})
-    except Exception as e:
-        return jsonify({'reply': f"Erreur : {str(e)}"})
+    reply_text = generate_response(user_message)
+    return jsonify({'reply': reply_text})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
