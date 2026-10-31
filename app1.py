@@ -1,4 +1,5 @@
 from flask import Flask, render_template_string, request, redirect, url_for
+import random
 
 app = Flask(__name__)
 
@@ -12,46 +13,37 @@ HTML_TEMPLATE = """
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chrono-Royaume - Messenger</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chrono-Royaume - Infini</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
             background-color: #18191a;
             color: #e4e6eb;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
+
         .messenger-container {
-            width: 100%;
-            max-width: 480px;
-            height: 100vh;
-            background-color: #242526;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            height: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+            background-color: #242526;
         }
-        @media (min-height: 650px) {
-            .messenger-container {
-                height: 94vh;
-                border-radius: 12px;
-                overflow: hidden;
-            }
-        }
-        
-        /* En-tête Messenger ultra compact */
+
         .messenger-header {
+            flex-shrink: 0;
             background-color: #242526;
             padding: 8px 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid #393a3b;
-            flex-shrink: 0;
         }
         .header-title {
             font-weight: bold;
@@ -77,30 +69,29 @@ HTML_TEMPLATE = """
             min-height: 0;
         }
 
-        /* Panneau supérieur très compact sur une seule ligne ou réduit */
         .top-panel {
+            flex-shrink: 0;
             background-color: #242526;
             padding: 6px 10px;
             border-bottom: 1px solid #393a3b;
             font-size: 0.75em;
-            flex-shrink: 0;
         }
         .config-row {
             display: flex;
             gap: 4px;
             margin-bottom: 4px;
         }
-        select, input[type="text"] {
+        input[type="text"] {
             flex: 1;
             background-color: #3a3b3c;
             border: 1px solid #393a3b;
             color: #e4e6eb;
-            padding: 5px 10px;
+            padding: 6px 10px;
             border-radius: 15px;
             font-size: 0.8em;
             outline: none;
         }
-        select:focus, input[type="text"]:focus {
+        input[type="text"]:focus {
             border-color: #0084ff;
         }
         .scores-text {
@@ -108,13 +99,13 @@ HTML_TEMPLATE = """
             font-weight: bold;
             text-align: center;
             font-size: 0.8em;
+            margin-top: 2px;
         }
 
-        /* Zone de messages qui prend toute la place centrale */
         .chat-messages {
             flex: 1;
-            padding: 10px;
             overflow-y: auto;
+            padding: 10px;
             background-color: #242526;
             display: flex;
             flex-direction: column;
@@ -175,24 +166,23 @@ HTML_TEMPLATE = """
             font-weight: bold;
         }
 
-        /* Barre de saisie Messenger TOUJOURS visible en bas */
         .messenger-input-area {
+            flex-shrink: 0;
             background-color: #242526;
-            padding: 8px 10px;
+            padding: 10px 12px;
             border-top: 1px solid #393a3b;
             display: flex;
             align-items: center;
             gap: 8px;
-            flex-shrink: 0;
         }
         .message-input {
             flex: 1;
             background-color: #3a3b3c;
             border: none;
             color: #e4e6eb;
-            padding: 8px 14px;
+            padding: 10px 14px;
             border-radius: 20px;
-            font-size: 0.9em;
+            font-size: 0.95em;
             outline: none;
         }
         .message-input::placeholder {
@@ -202,14 +192,14 @@ HTML_TEMPLATE = """
             background-color: #0084ff;
             color: white;
             border: none;
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 1em;
+            font-size: 1.1em;
             flex-shrink: 0;
         }
         .send-btn:active {
@@ -221,27 +211,18 @@ HTML_TEMPLATE = """
 
 <div class="messenger-container">
     <div class="messenger-header">
-        <div class="header-title">💬 Chrono-Royaume</div>
+        <div class="header-title">💬 Chrono-Royaume Infini</div>
         <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
     <form action="/send" method="POST" class="messenger-form">
         <div class="top-panel">
             <div class="config-row">
-                <input type="text" name="username" placeholder="Votre Nom" value="Tsanta" required>
-                <select name="role">
-                    <option value="Sorcier">🧙‍♂️ Sorcier</option>
-                    <option value="Magicien">✨ Magicien</option>
-                    <option value="Guerrier">🗡️ Guerrier</option>
-                    <option value="Roi/Reine">👑 Roi / Reine</option>
-                    <option value="Voyageur">⏳ Voyageur</option>
-                </select>
+                <input type="text" name="username" placeholder="Votre Nom (ex: Tsanta)" value="Tsanta" required>
+                <input type="text" name="role" placeholder="Personnage / Rôle libre (ex: Elfe, Mage...)" value="Sorcier" required>
             </div>
             <div class="config-row">
-                <select name="scenario">
-                    <option value="Royaume Effondré">🏰 Scénario : Royaume Effondré</option>
-                    <option value="Faille Temporelle">⚡ Scénario : Faille Temporelle</option>
-                </select>
+                <input type="text" name="scenario" placeholder="Situation / Scénario libre (ex: Dans le futur...)" value="Le Royaume Effondré" required>
             </div>
             <div class="scores-text">
                 {% if scores %}
@@ -254,7 +235,6 @@ HTML_TEMPLATE = """
             </div>
         </div>
 
-        <!-- Zone de messages -->
         <div class="chat-messages" id="chatbox">
             {% for m in messages %}
                 <div class="msg-row">
@@ -264,14 +244,13 @@ HTML_TEMPLATE = """
                         <div class="msg-bubble">
                             <a href="/delete/{{ loop.index0 }}" class="delete-link" title="Supprimer">✕</a>
                             {{ m.text }}
-                            <div class="judge-info">⚖️ {{ m.comment }} (+{{ m.points }}pts)</div>
+                            <div class="judge-info">🌐 [{{ m.scenario }}] ⚖️ {{ m.comment }} (+{{ m.points }}pts)</div>
                         </div>
                     </div>
                 </div>
             {% endfor %}
         </div>
 
-        <!-- Boîte d'envoi Messenger fixée en bas -->
         <div class="messenger-input-area">
             <input type="text" name="text" class="message-input" placeholder="Aa Message..." required autocomplete="off">
             <button type="submit" class="send-btn" title="Envoyer">➤</button>
@@ -294,25 +273,20 @@ def index():
 @app.route('/send', methods=['POST'])
 def send():
     sender = request.form.get('username', 'Anonyme').strip() or 'Anonyme'
-    role = request.form.get('role', 'Sorcier')
-    scenario = request.form.get('scenario', 'Général')
+    role = request.form.get('role', 'Personnage').strip() or 'Personnage'
+    scenario = request.form.get('scenario', 'Libre').strip() or 'Libre'
     text = request.form.get('text', '').strip()
     
     if text:
-        role_avatars = {
-            "Sorcier": "🧙‍♂️",
-            "Magicien": "✨",
-            "Guerrier": "🗡️",
-            "Roi/Reine": "👑",
-            "Voyageur": "⏳"
-        }
-        avatar = role_avatars.get(role, "💬")
+        # Génération automatique d'un avatar basé sur le texte du rôle ou aléatoire si inconnu
+        emojis = ["🧙‍♂️", "✨", "🗡️", "👑", "⏳", "🐉", "🔮", "🧝‍♀️", "🥷", "🧛‍♂️", "🤖", "🦊", "🌟", "🛡️"]
+        avatar = random.choice(emojis)
 
         points = 10
-        comment = "Réplique validée par le juge !"
-        if 'amour' in text.lower() or 't’aime' in text.lower() or 'coeur' in text.lower():
+        comment = f"Réplique validée dans '{scenario}' !"
+        if any(w in text.lower() for w in ['amour', 't’aime', 'coeur', 'tiako', 'mandrasa']):
             points = 20
-            comment = "Coup de cœur romantique absolu !"
+            comment = "Coup de cœur romantique absolu dans le temps !"
 
         if sender not in game_state["scores"]:
             game_state["scores"][sender] = 100
@@ -321,6 +295,7 @@ def send():
         game_state["messages"].append({
             "sender": sender,
             "role": role,
+            "scenario": scenario,
             "avatar": avatar,
             "text": text,
             "comment": comment,
