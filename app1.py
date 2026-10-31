@@ -5,8 +5,7 @@ app = Flask(__name__)
 
 game_state = {
     "messages": [],
-    "scores": {},
-    "roles": {},
+    "scores": {},  # Dictionnaire dynamique pour suivre les points de chaque joueur (ex: {"Tsanta": 10, "Tiffanie": 10})
     "winner": None,
     "last_animal_power": 0,
     "last_animal_name": None,
@@ -21,7 +20,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Duel d'Amour Coloré & Points</title>
+    <title>Chrono-Royaume - Duel d'Amour Définitif</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -126,7 +125,7 @@ HTML_TEMPLATE = """
 
 <div class="messenger-container">
     <div class="messenger-header">
-        <div class="header-title">💙 Duel d'Amour Coloré & Points</div>
+        <div class="header-title">💙 Duel d'Amour & Gestion des Points</div>
         <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
@@ -154,10 +153,14 @@ HTML_TEMPLATE = """
             </div>
             
             <div class="scores-board">
-                <span>🎯 POINTS (MIS À JOUR) :</span>
-                {% for user, pts in scores.items() %}
-                    <span>{{ user }} : {{ pts }} pts</span>
-                {% endfor %}
+                <span>🎯 SCORES EN DIRECT :</span>
+                {% if scores %}
+                    {% for user, pts in scores.items() %}
+                        <span><b>{{ user }}</b> : {{ pts }} pts</span>
+                    {% endfor %}
+                {% else %}
+                    <span>Aucun joueur connecté</span>
+                {% endif %}
             </div>
         </div>
 
@@ -205,23 +208,16 @@ def send():
     role = request.form.get('role', 'Séducteur')
     text = request.form.get('text', '').strip()
     
+    # Initialisation automatique du joueur avec 10 points s'il n'existe pas encore
     if sender not in game_state["scores"]:
         game_state["scores"][sender] = 10
-        # S'assurer que l'autre joueur existe aussi pour que les points s'équilibrent
-        for existing_user in game_state["scores"]:
-            if existing_user != sender:
-                break
-        else:
-            # Si c'est le premier, on initialise un adversaire fictif ou on attend le second
-            pass
-
         role_desc = "Tu dois charmer, utiliser des animaux et briser les défenses pour conquérir le cœur !" if role == "Séducteur" else "Tu dois résister, parer les attaques et utiliser ton bouclier ou la ruse pour ne pas céder !"
         game_state["messages"].append({
             "sender": "Système d'Arbitrage",
             "role": "Guide",
             "avatar": "📜",
-            "text": f"✨ **Entrée en scène de {sender}** en tant que **{role}**.\n💡 *Règle du rôle :* {role_desc}",
-            "comment": "Attribution équitable des rôles",
+            "text": f"✨ **Entrée en scène de {sender}** en tant que **{role}** (10 pts de départ).\n💡 *Règle :* {role_desc}",
+            "comment": "Initialisation du joueur",
             "bg_color": "#003366",
             "border_color": "#00bfff"
         })
@@ -234,7 +230,7 @@ def send():
         bg_color = "#3a3b3c"
         border_color = "#393a3b"
 
-        # Bouclier unique
+        # Gestion du Bouclier unique
         if lower_text.startswith('/bouclier'):
             if game_state["shield_used"].get(sender, False):
                 comment = "🛡️ Erreur : Tu as déjà utilisé ton bouclier unique !"
@@ -259,14 +255,14 @@ def send():
             })
             return redirect(url_for('index'))
 
-        # Détection d'un animal
+        # Détection d'une attaque par animal
         animal_match = re.match(r'^/([a-zA-Zà-öø-ÿ]+)', lower_text)
         
         if animal_match:
             animal_name_raw = animal_match.group(1)
             animal_name = animal_name_raw.capitalize()
             
-            # Attributs des animaux (Emoji, Couleur de fond de la bulle et bordure)
+            # Attributs des animaux (Emoji et Couleurs de bulles)
             animal_data = {
                 "grenouille": {"emoji": "🐸", "color": "#2e7d32", "border": "#4caf50"},
                 "lion": {"emoji": "🦁", "color": "#b71c1c", "border": "#ff5252"},
@@ -288,10 +284,10 @@ def send():
             
             if animal_name_raw in apex_predators:
                 power = 5
-                point_change = 2
+                point_change = 2  # Enjeu de 2 points
             elif animal_name_raw in small_animals:
                 power = 1
-                point_change = 1
+                point_change = 1  # Enjeu de 1 point
             else:
                 power = 3
                 point_change = 1
@@ -309,51 +305,61 @@ def send():
             winning_animal_name = animal_name
             winning_emoji = avatar
             winning_color = border_color
-            target_loser = None
-            target_winner = sender
+            
+            # Détermination automatique de l'adversaire
+            loser_player = None
+            winner_player = sender
+
+            for p in game_state["scores"]:
+                if p != sender:
+                    loser_player = p
+                    break
 
             if prev_power > 0 and prev_power != power:
                 if power < prev_power:
                     if has_valid_faille:
-                        comment = f"🧠 Le {animal_name} gagne par la ruse (faille : « {faille_msg} ») ! Il terrasse le {prev_name}. L'adversaire perd {point_change} point(s) !"
-                        for p in game_state["scores"]:
-                            if p != sender:
-                                target_loser = p
+                        comment = f"🧠 Le {animal_name} gagne par la ruse (faille : « {faille_msg} ») ! Il terrasse le {prev_name}. L'adversaire perd {point_change} pt(s) !"
+                        # Le joueur actuel gagne, l'autre perd
                     else:
                         winning_animal_name = prev_name
                         winning_emoji = prev_emoji
                         winning_color = prev_color
-                        comment = f"🛡️ Le {prev_name} est plus fort que ton {animal_name} et aucune faille n'a été trouvée ! Le {prev_name} gagne, tu perds {point_change} point(s) et tu dois céder !"
-                        target_loser = sender
-                        for p in game_state["scores"]:
-                            if p != sender:
-                                target_winner = p
+                        comment = f"🛡️ Le {prev_name} est plus fort que ton {animal_name} et aucune faille n'a été trouvée ! Le {prev_name} l'emporte, tu perds {point_change} pt(s) !"
+                        loser_player = sender
+                        winner_player = prev_name if prev_name != "aucun" else [p for p in game_state["scores"] if p != sender][0]
                 elif power > prev_power:
-                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} ! Il domine et gagne le duel. L'adversaire perd {point_change} point(s) !"
-                    for p in game_state["scores"]:
-                        if p != sender:
-                            target_loser = p
+                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} ! Il domine et gagne le duel. L'adversaire perd {point_change} pt(s) !"
                 else:
-                    comment = f"⚖️ Égalité parfaite entre les bêtes."
+                    comment = f"⚖️ Égalité parfaite entre les bêtes. Aucun point perdu."
+                    loser_player = None
             else:
                 comment = f"✨ Le {animal_name} prend l'avantage dans ce duel !"
+                # Si premier coup ou pas de confrontation directe, l'adversaire encaisse la pression (-1 pt)
+                if loser_player and len(game_state["scores"]) > 1:
+                    pass
+                else:
+                    loser_player = None
 
             game_state["last_animal_power"] = power
             game_state["last_animal_name"] = winning_animal_name
             game_state["last_animal_emoji"] = winning_emoji
             game_state["last_animal_color"] = winning_color
 
-            # MISE À JOUR EFFECTIVE DES POINTS (Diminution pour le perdant, Augmentation pour le gagnant)
-            if target_loser:
-                game_state["scores"][target_loser] -= point_change
-                if game_state["scores"][target_loser] <= 0:
-                    game_state["scores"][target_loser] = 0
-                    game_state["winner"] = target_winner
+            # APPLICATION FORMELLE DE LA MISE À JOUR DES POINTS
+            if loser_player and loser_player in game_state["scores"]:
+                game_state["scores"][loser_player] -= point_change
+                if game_state["scores"][loser_player] < 0:
+                    game_state["scores"][loser_player] = 0
 
-                # Faire augmenter les points du gagnant
+                # Trouver le gagnant et augmenter ses points
                 for p in game_state["scores"]:
-                    if p != target_loser:
+                    if p != loser_player:
                         game_state["scores"][p] += point_change
+                        winner_player = p
+
+                # Vérifier si l'adversaire est tombé à 0 point (Victoire)
+                if game_state["scores"][loser_player] == 0:
+                    game_state["winner"] = winner_player
 
             formatted_text = f"🗣️ « {main_msg} »" + (f" 🔍 [FAILLE : {faille_msg}]" if faille_msg else "")
             
@@ -368,7 +374,7 @@ def send():
             })
 
         else:
-            # Message humain normal : neutre, aucun changement de points
+            # Message humain normal : strictement neutre (aucun point gagné ni perdu)
             game_state["last_animal_power"] = 0
             game_state["last_animal_name"] = None
             game_state["last_animal_emoji"] = "👤"
