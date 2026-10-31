@@ -37,16 +37,16 @@ HTML_TEMPLATE = """
         }
         @media (min-height: 650px) {
             .messenger-container {
-                height: 92vh;
+                height: 94vh;
                 border-radius: 12px;
                 overflow: hidden;
             }
         }
         
-        /* En-tête Messenger */
+        /* En-tête Messenger ultra compact */
         .messenger-header {
             background-color: #242526;
-            padding: 10px 16px;
+            padding: 8px 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -55,22 +55,21 @@ HTML_TEMPLATE = """
         }
         .header-title {
             font-weight: bold;
-            font-size: 1.05em;
+            font-size: 0.95em;
             color: #e4e6eb;
         }
         .reset-btn {
             background: #3a3b3c;
             color: #b0b3b8;
             border: none;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.8em;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
             text-decoration: none;
             cursor: pointer;
         }
         .reset-btn:hover { background: #4e4f50; }
 
-        /* Formulaire global en flex */
         .messenger-form {
             display: flex;
             flex-direction: column;
@@ -78,27 +77,27 @@ HTML_TEMPLATE = """
             min-height: 0;
         }
 
-        /* Panneau de configuration supérieur */
+        /* Panneau supérieur très compact sur une seule ligne ou réduit */
         .top-panel {
             background-color: #242526;
-            padding: 8px 12px;
+            padding: 6px 10px;
             border-bottom: 1px solid #393a3b;
-            font-size: 0.8em;
+            font-size: 0.75em;
             flex-shrink: 0;
         }
         .config-row {
             display: flex;
-            gap: 6px;
-            margin-bottom: 6px;
+            gap: 4px;
+            margin-bottom: 4px;
         }
         select, input[type="text"] {
             flex: 1;
             background-color: #3a3b3c;
             border: 1px solid #393a3b;
             color: #e4e6eb;
-            padding: 7px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
             outline: none;
         }
         select:focus, input[type="text"]:focus {
@@ -108,18 +107,18 @@ HTML_TEMPLATE = """
             color: #0084ff;
             font-weight: bold;
             text-align: center;
-            margin-top: 2px;
+            font-size: 0.8em;
         }
 
-        /* Zone de messages (défilante) */
+        /* Zone de messages qui prend toute la place centrale */
         .chat-messages {
             flex: 1;
-            padding: 12px;
+            padding: 10px;
             overflow-y: auto;
             background-color: #242526;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
             min-height: 0;
         }
         .msg-row {
@@ -128,14 +127,14 @@ HTML_TEMPLATE = """
             gap: 8px;
         }
         .avatar-circle {
-            width: 34px;
-            height: 34px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             background-color: #3a3b3c;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.15em;
+            font-size: 1em;
             flex-shrink: 0;
             border: 1px solid #4e4f50;
         }
@@ -147,39 +146,39 @@ HTML_TEMPLATE = """
         .msg-bubble {
             background-color: #3a3b3c;
             color: #e4e6eb;
-            padding: 10px 14px;
-            border-radius: 18px;
-            font-size: 0.9em;
+            padding: 8px 12px;
+            border-radius: 16px;
+            font-size: 0.85em;
             word-wrap: break-word;
             position: relative;
         }
         .msg-sender {
-            font-size: 0.75em;
+            font-size: 0.7em;
             color: #b0b3b8;
             margin-bottom: 2px;
             margin-left: 4px;
         }
         .judge-info {
-            font-size: 0.75em;
+            font-size: 0.7em;
             color: #9cb4cc;
-            margin-top: 4px;
+            margin-top: 3px;
             font-style: italic;
             border-top: 1px dashed rgba(255,255,255,0.1);
             padding-top: 2px;
         }
         .delete-link {
             color: #ff5252;
-            font-size: 0.8em;
+            font-size: 0.75em;
             text-decoration: none;
             float: right;
-            margin-left: 8px;
+            margin-left: 6px;
             font-weight: bold;
         }
 
-        /* Barre de saisie Messenger fixée en bas */
+        /* Barre de saisie Messenger TOUJOURS visible en bas */
         .messenger-input-area {
             background-color: #242526;
-            padding: 10px 12px;
+            padding: 8px 10px;
             border-top: 1px solid #393a3b;
             display: flex;
             align-items: center;
@@ -191,9 +190,9 @@ HTML_TEMPLATE = """
             background-color: #3a3b3c;
             border: none;
             color: #e4e6eb;
-            padding: 10px 16px;
+            padding: 8px 14px;
             border-radius: 20px;
-            font-size: 0.95em;
+            font-size: 0.9em;
             outline: none;
         }
         .message-input::placeholder {
@@ -203,19 +202,15 @@ HTML_TEMPLATE = """
             background-color: #0084ff;
             color: white;
             border: none;
-            width: 38px;
-            height: 38px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 1.1em;
+            font-size: 1em;
             flex-shrink: 0;
-            transition: background 0.2s;
-        }
-        .send-btn:hover {
-            background-color: #006dd6;
         }
         .send-btn:active {
             transform: scale(0.92);
@@ -225,13 +220,11 @@ HTML_TEMPLATE = """
 <body>
 
 <div class="messenger-container">
-    <!-- En-tête -->
     <div class="messenger-header">
         <div class="header-title">💬 Chrono-Royaume</div>
         <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
-    <!-- Formulaire principal structuré en Flexbox -->
     <form action="/send" method="POST" class="messenger-form">
         <div class="top-panel">
             <div class="config-row">
@@ -261,7 +254,7 @@ HTML_TEMPLATE = """
             </div>
         </div>
 
-        <!-- Zone des messages -->
+        <!-- Zone de messages -->
         <div class="chat-messages" id="chatbox">
             {% for m in messages %}
                 <div class="msg-row">
@@ -278,7 +271,7 @@ HTML_TEMPLATE = """
             {% endfor %}
         </div>
 
-        <!-- Barre de saisie Messenger (maintenant toujours visible en bas) -->
+        <!-- Boîte d'envoi Messenger fixée en bas -->
         <div class="messenger-input-area">
             <input type="text" name="text" class="message-input" placeholder="Aa Message..." required autocomplete="off">
             <button type="submit" class="send-btn" title="Envoyer">➤</button>
