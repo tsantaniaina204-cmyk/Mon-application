@@ -2,7 +2,6 @@ from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
 
-# Base de données en mémoire pour le jeu
 game_state = {
     "messages": [],
     "scores": {"Tsanta": 100, "Tiffanie": 100}
@@ -18,101 +17,169 @@ HTML_TEMPLATE = """
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%);
+            background: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%);
             margin: 0;
-            padding: 15px;
-            color: #4a4a4a;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
-        .card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 20px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-            max-width: 500px;
-            margin: auto;
-        }
-        h1 { text-align: center; color: #e91e63; font-size: 1.5em; margin-bottom: 5px; }
-        .subtitle { text-align: center; color: #c2185b; font-size: 0.85em; margin-bottom: 15px; }
-        .config-box { margin-bottom: 15px; background: #fff0f5; padding: 12px; border-radius: 12px; }
-        select, input, button {
+        .chat-container {
             width: 100%;
-            padding: 10px;
-            margin-top: 6px;
-            border-radius: 8px;
-            border: 1px solid #ffb6c1;
-            box-sizing: border-box;
+            max-width: 450px;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 90vh;
         }
-        button {
-            background-color: #e91e63;
+        .chat-header {
+            background: #e91e63;
             color: white;
+            padding: 15px;
+            text-align: center;
             font-weight: bold;
-            border: none;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        #chat-box {
-            height: 220px;
-            overflow-y: auto;
-            border: 1px solid #ffd1dc;
-            padding: 10px;
-            border-radius: 10px;
-            background: #fff;
-            margin-bottom: 10px;
-        }
-        .msg { margin-bottom: 10px; font-size: 0.9em; border-bottom: 1px dashed #eee; padding-bottom: 5px; }
-        .msg-sender { font-weight: bold; color: #d81b60; }
-        .judge-comment {
-            color: #880e4f;
-            font-style: italic;
-            font-size: 0.8em;
-            background: #ffe4e1;
-            padding: 4px 8px;
-            border-radius: 6px;
-            margin-top: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .scores-board {
             display: flex;
             justify-content: space-around;
-            background: #ffe4e1;
+            background: #fff0f5;
             padding: 8px;
-            border-radius: 8px;
             font-weight: bold;
-            margin-bottom: 10px;
             color: #c2185b;
+            font-size: 0.85em;
+            border-bottom: 1px solid #ffd1dc;
+        }
+        .config-bar {
+            padding: 10px;
+            background: #fafafa;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            gap: 8px;
+        }
+        select {
+            flex: 1;
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid #ffb6c1;
+            font-size: 0.8em;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background: #fdfdfd;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .msg-wrapper {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        .msg-wrapper.tsanta {
+            flex-direction: row-reverse;
+        }
+        .avatar-img {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: #ffb6c1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+        .msg-bubble {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .tsanta .msg-bubble {
+            background: #e91e63;
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+        .tiffanie .msg-bubble {
+            background: #f1f0f0;
+            color: #333;
+            border-bottom-left-radius: 2px;
+        }
+        .judge-note {
+            font-size: 0.75em;
+            margin-top: 4px;
+            font-style: italic;
+            opacity: 0.85;
+            border-top: 1px dashed rgba(0,0,0,0.1);
+            padding-top: 2px;
+        }
+        .chat-input-area {
+            padding: 10px;
+            background: #fff;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 8px;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 20px;
+            border: 1px solid #ddd;
+            outline: none;
             font-size: 0.9em;
         }
+        button {
+            background: #e91e63;
+            color: white;
+            border: none;
+            padding: 0 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover { background: #d81b60; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h1>⏳ Le Remontage dans le Temps 💖</h1>
-    <div class="subtitle">Pour Tsanta & Tiffanie</div>
+<div class="chat-container">
+    <div class="chat-header">
+        ⏳ Le Remontage dans le Temps 💖
+    </div>
 
     <div class="scores-board">
         <span id="score-tsanta">Tsanta: 100 pts</span>
         <span id="score-tiff">Tiffanie: 100 pts</span>
     </div>
 
-    <div class="config-box">
-        <label><b>Qui es-tu ?</b></label>
+    <div class="config-bar">
         <select id="username">
-            <option value="Tsanta">Tsanta</option>
-            <option value="Tiffanie">Tiffanie</option>
+            <option value="Tsanta">Moi : Tsanta</option>
+            <option value="Tiffanie">Moi : Tiffanie</option>
         </select>
-
-        <label style="margin-top: 8px; display: block;"><b>Situation / Scénario :</b></label>
         <select id="scenario">
-            <option value="Riche vs Pauvre">Inversion : L'un est millionnaire, l'autre bohème</option>
-            <option value="Dispute du Passé">Résolution d'un malentendu temporel</option>
-            <option value="Première Rencontre">Revivre le premier regard</option>
+            <option value="Inversion de Richesse">🎭 Riche vs Pauvre</option>
+            <option value="Dispute du Passé">⏳ Malentendu du Passé</option>
+            <option value="Première Rencontre">✨ Premier Regard</option>
         </select>
     </div>
 
-    <div id="chat-box"></div>
+    <div class="chat-messages" id="chat-box"></div>
 
-    <input type="text" id="msg-input" placeholder="Écris ta réplique pleine d'amour...">
-    <button onclick="sendMessage()">Envoyer 💕</button>
+    <div class="chat-input-area">
+        <input type="text" id="msg-input" placeholder="Écris ton message d'amour..." onkeypress="checkEnter(event)">
+        <button onclick="sendMessage()">Envoyer</button>
+    </div>
 </div>
 
 <script>
@@ -133,6 +200,10 @@ async function sendMessage() {
     updateChat();
 }
 
+function checkEnter(e) {
+    if (e.key === 'Enter') sendMessage();
+}
+
 async function updateChat() {
     const res = await fetch('/api/get');
     const data = await res.json();
@@ -141,10 +212,19 @@ async function updateChat() {
     box.innerHTML = '';
 
     data.messages.forEach(m => {
+        const isTsanta = m.sender === 'Tsanta';
+        const cssClass = isTsanta ? 'tsanta' : 'tiffanie';
+        // Avatars codés sur mesure
+        const avatarIcon = isTsanta ? '👨‍💻' : '🌸';
+
         box.innerHTML += `
-            <div class="msg">
-                <span class="msg-sender">${m.sender} :</span> ${m.text}
-                <div class="judge-comment">⚖️ Juge : "${m.comment}" (${m.points > 0 ? '+' + m.points : m.points} pts)</div>
+            <div class="msg-wrapper ${cssClass}">
+                <div class="avatar-img">${avatarIcon}</div>
+                <div class="msg-bubble">
+                    <div style="font-weight: bold; font-size: 0.8em; margin-bottom: 2px;">${m.sender}</div>
+                    <div>${m.text}</div>
+                    <div class="judge-note">⚖️ ${m.comment} (${m.points > 0 ? '+' + m.points : m.points} pts)</div>
+                </div>
             </div>
         `;
     });
@@ -168,23 +248,22 @@ def index():
 @app.route('/api/send', methods=['POST'])
 def send():
     data = request.json
-    sender = data.get('sender', 'Anonyme')
+    sender = data.get('sender', 'Tsanta')
     text = data.get('text', '')
     
-    # Juge automatique intégré en Python (analyse des mots-clés)
     lower_text = text.lower()
     points = 5
-    comment = "C'est mignon tout plein !"
+    comment = "Le juge valide cette réplique !"
     
-    if any(w in lower_text for w in ['amour', 't’aime', 'je t aime', 'coeur', 'vie', 'toujours', 'ensemble', 'tiako']):
-        points = 12
-        comment = "Quel romantisme absolu ! Le cœur du juge fond. 💖"
-    elif any(w in lower_text for w in ['pauvre', 'riche', 'argent', 'million', 'sou', 'passé', 'temps']):
-        points = 8
-        comment = "Excellente mise en situation dans le scénario ! 🎭"
-    elif len(text) < 8:
+    if any(w in lower_text for w in ['amour', 't’aime', 'je t aime', 'coeur', 'vie', 'toujours', 'ensemble', 'tiako', 'mandrasa']):
+        points = 15
+        comment = "Coup de cœur romantique absolu ! 💕"
+    elif any(w in lower_text for w in ['riche', 'pauvre', 'argent', 'passé', 'temps', 'regard']):
+        points = 10
+        comment = "Excellente immersion dans le jeu ! 🎭"
+    elif len(text) < 5:
         points = 2
-        comment = "Un peu court ! Dis-en un peu plus avec ton cœur. 😉"
+        comment = "Un peu court, dis-en plus ! 😉"
 
     game_state["scores"][sender] += points
     
