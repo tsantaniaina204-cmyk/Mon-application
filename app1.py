@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 game_state = {
     "messages": [],
-    "scores": {"Tsanta": 100, "Tiffanie": 100}
+    "scores": {}
 }
 
 HTML_TEMPLATE = """
@@ -12,179 +12,134 @@ HTML_TEMPLATE = """
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Le Remontage dans le Temps 💖</title>
     <style>
-        body {
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%; width: 100%; overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%);
-            margin: 0;
-            padding: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            background: linear-gradient(135deg, #1f4068 0%, #162447 100%);
+            display: flex; justify-content: center; align-items: center;
         }
         .chat-container {
-            width: 100%;
-            max-width: 450px;
-            background: #ffffff;
-            border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            height: 90vh;
+            width: 100%; max-width: 450px; height: 100vh;
+            background: #ffffff; display: flex; flex-direction: column;
+            position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        @media (min-height: 600px) and (min-width: 460px) {
+            .chat-container { height: 92vh; border-radius: 20px; overflow: hidden; }
         }
         .chat-header {
-            background: #e91e63;
-            color: white;
-            padding: 15px;
-            text-align: center;
-            font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background: #0f4c81; color: white; padding: 12px;
+            text-align: center; font-weight: bold; font-size: 1.1em;
+            display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+        }
+        .header-btn {
+            background: rgba(255,255,255,0.2); color: white; border: none;
+            padding: 4px 8px; border-radius: 12px; font-size: 0.75em; cursor: pointer;
         }
         .scores-board {
-            display: flex;
-            justify-content: space-around;
-            background: #fff0f5;
-            padding: 8px;
-            font-weight: bold;
-            color: #c2185b;
-            font-size: 0.85em;
-            border-bottom: 1px solid #ffd1dc;
+            display: flex; justify-content: space-around; background: #e8f4f8;
+            padding: 8px; font-weight: bold; color: #1f4068; font-size: 0.8em;
+            border-bottom: 1px solid #d1e8e2; flex-shrink: 0; overflow-x: auto;
         }
         .config-bar {
-            padding: 10px;
-            background: #fafafa;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            gap: 8px;
+            padding: 8px; background: #f4f4f4; border-bottom: 1px solid #ddd;
+            display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
         }
-        select {
-            flex: 1;
-            padding: 6px;
-            border-radius: 6px;
-            border: 1px solid #ffb6c1;
-            font-size: 0.8em;
+        .config-row { display: flex; gap: 6px; }
+        select, input {
+            flex: 1; padding: 6px; border-radius: 6px;
+            border: 1px solid #ccc; font-size: 0.8em; background: #fff;
         }
         .chat-messages {
-            flex: 1;
-            padding: 15px;
-            overflow-y: auto;
-            background: #fdfdfd;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+            flex: 1; padding: 12px; overflow-y: auto; background: #f7f9fb;
+            display: flex; flex-direction: column; gap: 10px;
         }
-        .msg-wrapper {
-            display: flex;
-            align-items: flex-end;
-            gap: 8px;
-        }
-        .msg-wrapper.tsanta {
-            flex-direction: row-reverse;
-        }
-        .avatar-img {
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            background: #ffb6c1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2em;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            flex-shrink: 0;
+        .msg-wrapper { display: flex; align-items: flex-start; gap: 8px; }
+        .avatar-box {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: #e4e4e4; display: flex; align-items: center; justify-content: center;
+            font-size: 1.4em; box-shadow: 0 2px 5px rgba(0,0,0,0.15); flex-shrink: 0;
+            border: 2px solid #0f4c81;
         }
         .msg-bubble {
-            max-width: 70%;
-            padding: 10px 14px;
-            border-radius: 15px;
-            font-size: 0.9em;
-            position: relative;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            max-width: 70%; padding: 10px 12px; border-radius: 12px;
+            font-size: 0.85em; position: relative; background: #ffffff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e1e1e1;
         }
-        .tsanta .msg-bubble {
-            background: #e91e63;
-            color: white;
-            border-bottom-right-radius: 2px;
+        .msg-header-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+        .msg-sender { font-weight: bold; color: #0f4c81; font-size: 0.85em; }
+        .delete-btn {
+            background: none; border: none; color: #ff6b6b; cursor: pointer;
+            font-size: 0.9em; padding: 0 4px;
         }
-        .tiffanie .msg-bubble {
-            background: #f1f0f0;
-            color: #333;
-            border-bottom-left-radius: 2px;
+        .power-tag {
+            font-size: 0.7em; background: #fff3cd; color: #856404;
+            padding: 2px 6px; border-radius: 4px; margin-bottom: 4px; display: inline-block;
+            font-weight: bold;
         }
         .judge-note {
-            font-size: 0.75em;
-            margin-top: 4px;
-            font-style: italic;
-            opacity: 0.85;
-            border-top: 1px dashed rgba(0,0,0,0.1);
-            padding-top: 2px;
+            font-size: 0.75em; margin-top: 5px; font-style: italic; color: #555;
+            border-top: 1px dashed #eee; padding-top: 3px;
         }
         .chat-input-area {
-            padding: 10px;
-            background: #fff;
-            border-top: 1px solid #eee;
-            display: flex;
-            gap: 8px;
+            padding: 8px; background: #fff; border-top: 1px solid #ddd;
+            display: flex; gap: 6px; flex-shrink: 0; align-items: center;
         }
-        input {
-            flex: 1;
-            padding: 10px;
-            border-radius: 20px;
-            border: 1px solid #ddd;
-            outline: none;
-            font-size: 0.9em;
+        .send-btn {
+            background: #0f4c81; color: white; border: none; padding: 0 16px;
+            height: 38px; border-radius: 20px; font-weight: bold; cursor: pointer;
         }
-        button {
-            background: #e91e63;
-            color: white;
-            border: none;
-            padding: 0 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        button:hover { background: #d81b60; }
     </style>
 </head>
 <body>
 
 <div class="chat-container">
     <div class="chat-header">
-        ⏳ Le Remontage dans le Temps 💖
+        <span>⏳ Chrono-Royaume Magique 🔮</span>
+        <button class="header-btn" onclick="resetGame()">🔄 Reset</button>
     </div>
 
-    <div class="scores-board">
-        <span id="score-tsanta">Tsanta: 100 pts</span>
-        <span id="score-tiff">Tiffanie: 100 pts</span>
+    <div class="scores-board" id="scores-board">
+        <span>Aucun score pour l'instant</span>
     </div>
 
     <div class="config-bar">
-        <select id="username">
-            <option value="Tsanta">Moi : Tsanta</option>
-            <option value="Tiffanie">Moi : Tiffanie</option>
-        </select>
-        <select id="scenario">
-            <option value="Inversion de Richesse">🎭 Riche vs Pauvre</option>
-            <option value="Dispute du Passé">⏳ Malentendu du Passé</option>
-            <option value="Première Rencontre">✨ Premier Regard</option>
-        </select>
+        <div class="config-row">
+            <input type="text" id="username" placeholder="Ton Prénom (ex: Tiffanie, Tsanta...)" value="Tsanta">
+            <select id="role">
+                <option value="Sorcier">🔮 Sorcier (Pouvoir d'Ombre)</option>
+                <option value="Magicien">✨ Magicien (Pouvoir Stellaire)</option>
+                <option value="Guerrier">🗡️ Guerrier (Pouvoir de Feu)</option>
+                <option value="Mage">📜 Mage (Pouvoir Ancien)</option>
+                <option value="Roi/Reine">👑 Roi/Reine (Pouvoir Royal)</option>
+                <option value="Voyageur">⏳ Voyageur (Pouvoir Temporel)</option>
+            </select>
+        </div>
+        <div class="config-row">
+            <select id="scenario">
+                <option value="Le Royaume Effondré">🏰 Scénario : Le Royaume Effondré (Riches vs Pauvres)</option>
+                <option value="La Faille Temporelle">⚡ Scénario : Réécrire une erreur du passé</option>
+                <option value="Le Labyrinthe des Âmes">🌀 Scénario : Trouver la sortie ensemble</option>
+                <option value="L'Ère des Dragons">🐉 Scénario : Affronter le gardien du temps</option>
+            </select>
+        </div>
     </div>
 
     <div class="chat-messages" id="chat-box"></div>
 
     <div class="chat-input-area">
-        <input type="text" id="msg-input" placeholder="Écris ton message d'amour..." onkeypress="checkEnter(event)">
-        <button onclick="sendMessage()">Envoyer</button>
+        <input type="text" id="msg-input" placeholder="Invoque ta réplique ou discute..." onkeypress="checkEnter(event)">
+        <button class="send-btn" onclick="sendMessage()">Lancer</button>
     </div>
 </div>
 
 <script>
 async function sendMessage() {
-    const username = document.getElementById('username').value;
+    const username = document.getElementById('username').value.trim() || 'Anonyme';
+    const role = document.getElementById('role').value;
     const scenario = document.getElementById('scenario').value;
     const text = document.getElementById('msg-input').value;
 
@@ -194,7 +149,7 @@ async function sendMessage() {
     await fetch('/api/send', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ sender: username, scenario, text })
+        body: JSON.stringify({ sender: username, role, scenario, text })
     });
 
     updateChat();
@@ -204,6 +159,22 @@ function checkEnter(e) {
     if (e.key === 'Enter') sendMessage();
 }
 
+async function deleteMsg(index) {
+    await fetch('/api/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ index })
+    });
+    updateChat();
+}
+
+async function resetGame() {
+    if (confirm("Voulez-vous réinitialiser toute la partie ?")) {
+        await fetch('/api/reset', { method: 'POST' });
+        updateChat();
+    }
+}
+
 async function updateChat() {
     const res = await fetch('/api/get');
     const data = await res.json();
@@ -211,27 +182,34 @@ async function updateChat() {
     const box = document.getElementById('chat-box');
     box.innerHTML = '';
 
-    data.messages.forEach(m => {
-        const isTsanta = m.sender === 'Tsanta';
-        const cssClass = isTsanta ? 'tsanta' : 'tiffanie';
-        // Avatars codés sur mesure
-        const avatarIcon = isTsanta ? '👨‍💻' : '🌸';
-
+    data.messages.forEach((m, index) => {
         box.innerHTML += `
-            <div class="msg-wrapper ${cssClass}">
-                <div class="avatar-img">${avatarIcon}</div>
+            <div class="msg-wrapper">
+                <div class="avatar-box">${m.avatar}</div>
                 <div class="msg-bubble">
-                    <div style="font-weight: bold; font-size: 0.8em; margin-bottom: 2px;">${m.sender}</div>
+                    <div class="msg-header-info">
+                        <span class="msg-sender">${m.sender} (${m.role})</span>
+                        <button class="delete-btn" onclick="deleteMsg(${index})" title="Supprimer">❌</button>
+                    </div>
+                    <div class="power-tag">⚡ ${m.power}</div>
                     <div>${m.text}</div>
-                    <div class="judge-note">⚖️ ${m.comment} (${m.points > 0 ? '+' + m.points : m.points} pts)</div>
+                    <div class="judge-note">⚖️ ${m.comment} (+${m.points} pts)</div>
                 </div>
             </div>
         `;
     });
     box.scrollTop = box.scrollHeight;
 
-    document.getElementById('score-tsanta').innerText = `Tsanta: ${data.scores.Tsanta} pts`;
-    document.getElementById('score-tiff').innerText = `Tiffanie: ${data.scores.Tiffanie} pts`;
+    const scoresBoard = document.getElementById('scores-board');
+    scoresBoard.innerHTML = '';
+    const scores = data.scores;
+    if (Object.keys(scores).length === 0) {
+        scoresBoard.innerHTML = '<span>Aucun score pour l\'instant</span>';
+    } else {
+        for (let [user, pts] of Object.entries(scores)) {
+            scoresBoard.innerHTML += `<span>${user}: ${pts} pts</span>`;
+        }
+    }
 }
 
 setInterval(updateChat, 2000);
@@ -248,27 +226,46 @@ def index():
 @app.route('/api/send', methods=['POST'])
 def send():
     data = request.json
-    sender = data.get('sender', 'Tsanta')
+    sender = data.get('sender', 'Anonyme')
+    role = data.get('role', 'Sorcier')
+    scenario = data.get('scenario', 'Général')
     text = data.get('text', '')
     
-    lower_text = text.lower()
-    points = 5
-    comment = "Le juge valide cette réplique !"
+    # Attribution automatique des avatars et des pouvoirs spéciaux selon le rôle choisi
+    role_config = {
+        "Sorcier": {"avatar": "🧙‍♂️", "power": "Magie Noire & Illusions"},
+        "Magicien": {"avatar": "✨", "power": "Sortilèges Stellaires"},
+        "Guerrier": {"avatar": "🗡️", "power": "Frappe de Feu Sacré"},
+        "Mage": {"avatar": "📜", "power": "Anciennes Connaissances"},
+        "Roi/Reine": {"avatar": "👑", "power": "Décret Royal Absolu"},
+        "Voyageur": {"avatar": "⏳", "power": "Manipulation du Temps"}
+    }
     
-    if any(w in lower_text for w in ['amour', 't’aime', 'je t aime', 'coeur', 'vie', 'toujours', 'ensemble', 'tiako', 'mandrasa']):
-        points = 15
-        comment = "Coup de cœur romantique absolu ! 💕"
-    elif any(w in lower_text for w in ['riche', 'pauvre', 'argent', 'passé', 'temps', 'regard']):
-        points = 10
-        comment = "Excellente immersion dans le jeu ! 🎭"
-    elif len(text) < 5:
-        points = 2
-        comment = "Un peu court, dis-en plus ! 😉"
+    config = role_config.get(role, {"avatar": "🔮", "power": "Mystère Pur"})
+    avatar = config["avatar"]
+    power = config["power"]
 
+    # Juge automatique intégré
+    points = 10
+    comment = f"Le pouvoir de {role} résonne dans le temps !"
+    lower_text = text.lower()
+    
+    if any(w in lower_text for w in ['amour', 't’aime', 'coeur', 'ensemble', 'toujours', 'tiako']):
+        points = 20
+        comment = "Puissance amoureuse maximale ! Le juge est conquis. 💖"
+    elif any(w in lower_text for w in ['sort', 'feu', 'temps', 'royaume', 'magie', 'pouvoir']):
+        points = 15
+        comment = f"Utilisation magistrale du pouvoir '{power}' ! ⚡"
+
+    if sender not in game_state["scores"]:
+        game_state["scores"][sender] = 100
     game_state["scores"][sender] += points
     
     game_state["messages"].append({
         "sender": sender,
+        "role": role,
+        "avatar": avatar,
+        "power": power,
         "text": text,
         "comment": comment,
         "points": points
@@ -276,9 +273,23 @@ def send():
     
     return jsonify({"status": "ok"})
 
+@app.route('/api/delete', methods=['POST'])
+def delete_msg():
+    data = request.json
+    index = data.get('index')
+    if index is not None and 0 <= index < len(game_state["messages"]):
+        game_state["messages"].pop(index)
+    return jsonify({"status": "ok"})
+
 @app.route('/api/get')
 def get_data():
     return jsonify(game_state)
+
+@app.route('/api/reset', methods=['POST'])
+def reset_data():
+    game_state["messages"] = []
+    game_state["scores"] = {}
+    return jsonify({"status": "ok"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
