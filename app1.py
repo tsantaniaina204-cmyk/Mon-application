@@ -13,154 +13,269 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chrono-Royaume Magique</title>
+    <title>Chrono-Royaume - Messenger</title>
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            margin: 0;
-            padding: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #18191a;
+            color: #e4e6eb;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
         }
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        .messenger-container {
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            background-color: #242526;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
-        .header {
+        @media (min-height: 650px) {
+            .messenger-container {
+                height: 92vh;
+                border-radius: 12px;
+                overflow: hidden;
+            }
+        }
+        
+        /* En-tête Messenger */
+        .messenger-header {
+            background-color: #242526;
+            padding: 12px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: #007bff;
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
+            border-bottom: 1px solid #393a3b;
         }
-        .scores {
-            margin: 10px 0;
-            padding: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
+        .header-title {
             font-weight: bold;
-            font-size: 0.9em;
+            font-size: 1.05em;
+            color: #e4e6eb;
         }
-        .chat-box {
-            height: 250px;
-            border: 1px solid #ccc;
-            overflow-y: scroll;
-            padding: 10px;
-            margin-bottom: 10px;
-            background: #fafafa;
-            border-radius: 4px;
-        }
-        .msg {
-            margin-bottom: 8px;
-            padding: 8px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-        .input-area {
-            display: flex;
-            gap: 5px;
-        }
-        input[type="text"], select {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            width: 100%;
-            margin-bottom: 5px;
-            font-size: 1em;
-        }
-        .btn {
-            background: #28a745;
-            color: white;
+        .reset-btn {
+            background: #3a3b3c;
+            color: #b0b3b8;
             border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .btn-reset {
-            background: #dc3545;
-            color: white;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
             text-decoration: none;
-            padding: 5px 10px;
-            border-radius: 4px;
+            cursor: pointer;
+        }
+        .reset-btn:hover { background: #4e4f50; }
+
+        /* Panneau de configuration supérieur */
+        .top-panel {
+            background-color: #242526;
+            padding: 8px 12px;
+            border-bottom: 1px solid #393a3b;
             font-size: 0.8em;
         }
-        .delete-link {
-            color: red;
-            float: right;
-            text-decoration: none;
+        .config-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        select, input[type="text"] {
+            flex: 1;
+            background-color: #3a3b3c;
+            border: 1px solid #393a3b;
+            color: #e4e6eb;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            outline: none;
+        }
+        select:focus, input[type="text"]:focus {
+            border-color: #0084ff;
+        }
+        .scores-text {
+            color: #0084ff;
             font-weight: bold;
+            text-align: center;
+            margin-top: 4px;
+        }
+
+        /* Zone de messages (Style Messenger) */
+        .chat-messages {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            background-color: #242526;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .msg-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        .avatar-circle {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background-color: #3a3b3c;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15em;
+            flex-shrink: 0;
+            border: 1px solid #4e4f50;
+        }
+        .msg-content {
+            max-width: 75%;
+            display: flex;
+            flex-direction: column;
+        }
+        .msg-bubble {
+            background-color: #3a3b3c;
+            color: #e4e6eb;
+            padding: 10px 14px;
+            border-radius: 18px;
+            font-size: 0.9em;
+            word-wrap: break-word;
+            position: relative;
+        }
+        .msg-sender {
+            font-size: 0.75em;
+            color: #b0b3b8;
+            margin-bottom: 2px;
+            margin-left: 4px;
+        }
+        .judge-info {
+            font-size: 0.75em;
+            color: #9cb4cc;
+            margin-top: 4px;
+            font-style: italic;
+            border-top: 1px dashed rgba(255,255,255,0.1);
+            padding-top: 2px;
+        }
+        .delete-link {
+            color: #ff5252;
+            font-size: 0.8em;
+            text-decoration: none;
+            float: right;
+            margin-left: 8px;
+            font-weight: bold;
+        }
+
+        /* Barre de saisie Messenger avec le vrai bouton bleu */
+        .messenger-input-area {
+            background-color: #242526;
+            padding: 10px 12px;
+            border-top: 1px solid #393a3b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .message-input {
+            flex: 1;
+            background-color: #3a3b3c;
+            border: none;
+            color: #e4e6eb;
+            padding: 10px 16px;
+            border-radius: 20px;
+            font-size: 0.95em;
+            outline: none;
+        }
+        .message-input::placeholder {
+            color: #b0b3b8;
+        }
+        /* Bouton Envoyer identique à Messenger */
+        .send-btn {
+            background-color: #0084ff;
+            color: white;
+            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.1em;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+        .send-btn:hover {
+            background-color: #006dd6;
+        }
+        .send-btn:active {
+            transform: scale(0.92);
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <span>Chrono-Royaume Magique</span>
-        <a href="/reset" class="btn-reset">Reset</a>
+<div class="messenger-container">
+    <!-- En-tête -->
+    <div class="messenger-header">
+        <div class="header-title">💬 Chrono-Royaume</div>
+        <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
-    <div class="scores">
-        Scores : 
-        {% if scores %}
-            {% for user, pts in scores.items() %}
-                <span>{{ user }}: {{ pts }} pts | </span>
-            {% endfor %}
-        {% else %}
-            <span>Aucun score</span>
-        {% endif %}
-    </div>
-
-    <!-- Formulaire principal standard -->
-    <form action="/send" method="POST">
-        <div>
-            <label>Prénom :</label>
-            <input type="text" name="username" value="Tsanta" required>
-        </div>
-        <div>
-            <label>Rôle :</label>
-            <select name="role">
-                <option value="Sorcier">Sorcier</option>
-                <option value="Magicien">Magicien</option>
-                <option value="Guerrier">Guerrier</option>
-                <option value="Roi/Reine">Roi/Reine</option>
-            </select>
-        </div>
-        <div>
-            <label>Scénario :</label>
-            <select name="scenario">
-                <option value="Royaume Effondré">Royaume Effondré</option>
-                <option value="Faille Temporelle">Faille Temporelle</option>
-            </select>
+    <!-- Formulaire principal englobant les options, le chat et le bouton -->
+    <form action="/send" method="POST" style="display: flex; flex-direction: column; height: calc(100% - 49px);">
+        <div class="top-panel">
+            <div class="config-row">
+                <input type="text" name="username" placeholder="Votre Nom" value="Tsanta" required>
+                <select name="role">
+                    <option value="Sorcier">🧙‍♂️ Sorcier</option>
+                    <option value="Magicien">✨ Magicien</option>
+                    <option value="Guerrier">🗡️ Guerrier</option>
+                    <option value="Roi/Reine">👑 Roi / Reine</option>
+                    <option value="Voyageur">⏳ Voyageur</option>
+                </select>
+            </div>
+            <div class="config-row">
+                <select name="scenario">
+                    <option value="Royaume Effondré">🏰 Scénario : Royaume Effondré</option>
+                    <option value="Faille Temporelle">⚡ Scénario : Faille Temporelle</option>
+                </select>
+            </div>
+            <div class="scores-text">
+                {% if scores %}
+                    {% for user, pts in scores.items() %}
+                        {{ user }}: {{ pts }} pts &nbsp;&nbsp;
+                    {% endfor %}
+                {% else %}
+                    Scores: 0 pts
+                {% endif %}
+            </div>
         </div>
 
-        <div class="chat-box" id="chatbox">
+        <!-- Zone des messages -->
+        <div class="chat-messages" id="chatbox">
             {% for m in messages %}
-                <div class="msg">
-                    <a href="/delete/{{ loop.index0 }}" class="delete-link">X</a>
-                    <strong>{{ m.sender }} ({{ m.role }}) :</strong> {{ m.text }} 
-                    <br><small style="color: #666;">⚖️ {{ m.comment }} (+{{ m.points }} pts)</small>
+                <div class="msg-row">
+                    <div class="avatar-circle">{{ m.avatar }}</div>
+                    <div class="msg-content">
+                        <div class="msg-sender">{{ m.sender }} ({{ m.role }})</div>
+                        <div class="msg-bubble">
+                            <a href="/delete/{{ loop.index0 }}" class="delete-link" title="Supprimer">✕</a>
+                            {{ m.text }}
+                            <div class="judge-info">⚖️ {{ m.comment }} (+{{ m.points }}pts)</div>
+                        </div>
+                    </div>
                 </div>
             {% endfor %}
         </div>
 
-        <div class="input-area">
-            <input type="text" name="text" placeholder="Votre message..." required autocomplete="off">
-            <button type="submit" class="btn">Envoyer</button>
+        <!-- Barre de saisie Messenger -->
+        <div class="messenger-input-area">
+            <input type="text" name="text" class="message-input" placeholder="Aa Message..." required autocomplete="off">
+            <button type="submit" class="send-btn" title="Envoyer">➤</button>
         </div>
     </form>
 </div>
 
 <script>
-    // Fait défiler le chat automatiquement en bas
     const cb = document.getElementById('chatbox');
     if(cb) { cb.scrollTop = cb.scrollHeight; }
 </script>
@@ -180,11 +295,20 @@ def send():
     text = request.form.get('text', '').strip()
     
     if text:
+        role_avatars = {
+            "Sorcier": "🧙‍♂️",
+            "Magicien": "✨",
+            "Guerrier": "🗡️",
+            "Roi/Reine": "👑",
+            "Voyageur": "⏳"
+        }
+        avatar = role_avatars.get(role, "💬")
+
         points = 10
-        comment = "Réplique validée !"
-        if 'amour' in text.lower() or 't’aime' in text.lower():
+        comment = "Réplique validée par le juge !"
+        if 'amour' in text.lower() or 't’aime' in text.lower() or 'coeur' in text.lower():
             points = 20
-            comment = "Magnifique message romantique !"
+            comment = "Coup de cœur romantique absolu !"
 
         if sender not in game_state["scores"]:
             game_state["scores"][sender] = 100
@@ -193,6 +317,7 @@ def send():
         game_state["messages"].append({
             "sender": sender,
             "role": role,
+            "avatar": avatar,
             "text": text,
             "comment": comment,
             "points": points
