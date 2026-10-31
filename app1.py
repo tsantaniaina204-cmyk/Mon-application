@@ -6,7 +6,8 @@ app = Flask(__name__)
 game_state = {
     "messages": [],
     "scores": {"Séducteur": 50, "Défenseur (Cible)": 50},
-    "winner": None
+    "winner": None,
+    "last_animal": None
 }
 
 HTML_TEMPLATE = """
@@ -15,7 +16,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Duel d'Amour</title>
+    <title>Chrono-Royaume - Duel Stratégique & Intelligence</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -77,7 +78,7 @@ HTML_TEMPLATE = """
             background-color: #3a3b3c; color: #e4e6eb; padding: 10px 14px;
             border-radius: 18px; font-size: 0.9em; word-wrap: break-word; position: relative;
         }
-        .msg-bubble.love-trap {
+        .msg-bubble.animal-strategy {
             background: linear-gradient(135deg, #4a1535, #260a1d);
             border: 2px solid #ff69b4;
         }
@@ -122,16 +123,16 @@ HTML_TEMPLATE = """
 
 <div class="messenger-container">
     <div class="messenger-header">
-        <div class="header-title">💖 Duel d'Amour & Bestiaire</div>
+        <div class="header-title">💖 Duel Stratégique & Intelligence</div>
         <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
     {% if winner %}
     <div class="victory-overlay">
         <div class="victory-card">
-            <div class="victory-title">💘 COUP DE FOUDRE TOTAL ! 💖</div>
-            <div class="victory-name">Le grand vainqueur de l'amour :<br><span style="color: #00ffff;">{{ winner }}</span></div>
-            <p style="color: #e4e6eb; margin-bottom: 20px; font-size: 0.9em;">L'autre a complètement succombé et a perdu son cœur !</p>
+            <div class="victory-title">🎉 VICTOIRE ÉPIQUE DE L'AMOUR ! 💘</div>
+            <div class="victory-name">Le grand vainqueur par ruse et séduction :<br><span style="color: #00ffff;">{{ winner }}</span></div>
+            <p style="color: #e4e6eb; margin-bottom: 20px; font-size: 0.9em;">L'adversaire a succombé face à tant d'intelligence !</p>
             <a href="/reset" class="victory-btn">Nouvelle Partie 🔄</a>
         </div>
     </div>
@@ -141,14 +142,12 @@ HTML_TEMPLATE = """
         <div class="top-panel">
             <div class="config-row">
                 <input type="text" name="username" placeholder="Votre Nom (ex: Tsanta, Tiffanie)" autocomplete="off">
-                <!-- Choix des avatars / animaux aux caractères uniques -->
                 <select name="role">
-                    <option value="Renard">🦊 Renard (Fourbe & Séducteur)</option>
-                    <option value="Loup">🐺 Loup (Passionné & Protecteur)</option>
-                    <option value="Chat">🐱 Chat (Mystérieux & Indifférent)</option>
-                    <option value="Dragon">🐉 Dragon (Feu & Amour Absolu)</option>
-                    <option value="Ange">👼 Ange (Pureté & Charme Céleste)</option>
-                    <option value="Phoenix">🔥 Phoenix (Renaissance Amoureuse)</option>
+                    <option value="Séducteur Charmant">🤵 Séducteur Charmant</option>
+                    <option value="Poète Romantique">📜 Poète Romantique</option>
+                    <option value="Mystique ténébreux">🖤 Mystique Ténébreux</option>
+                    <option value="Princesse / Reine">👸 Princesse / Reine</option>
+                    <option value="Aventurier Passionné">🧭 Aventurier Passionné</option>
                 </select>
             </div>
             
@@ -177,7 +176,7 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="messenger-input-area">
-            <input type="text" name="text" class="message-input" placeholder="Aa Envoie ta drague ou ta résistance..." required autocomplete="off">
+            <input type="text" name="text" class="message-input" placeholder="Aa Message (ex: /lapin Si le lion est fort, face à l'éléphant...)" required autocomplete="off">
             <button type="submit" class="send-btn" title="Envoyer">➤</button>
         </div>
     </form>
@@ -201,70 +200,104 @@ def send():
         return redirect(url_for('index'))
 
     sender = request.form.get('username', '').strip() or 'Anonyme'
-    role = request.form.get('role', 'Renard')
+    role = request.form.get('role', 'Séducteur Charmant')
     text = request.form.get('text', '').strip()
     
     if text:
-        # Base de données des animaux et créatures avec leurs caractères naturels et questions pièges automatiques
-        animals_traits = {
-            "Renard": {
-                "emoji": "🦊", 
-                "trap": "🦊 *[Piège du Renard rusé]* : « Dis-moi... Si tu devais me voler un secret rien qu'à toi, ce serait lequel ? »", 
-                "impact": 15, "desc": "Utilise la ruse pour faire douter et charmer l'autre."
-            },
-            "Loup": {
-                "emoji": "🐺", 
-                "trap": "🐺 *[Piège du Loup solitaire]* : « La meute s'en fout, mais moi je ne vois que toi. Pourquoi est-ce que tu m'envoutes autant ? »", 
-                "impact": 20, "desc": "Séduction intense et magnétique."
-            },
-            "Chat": {
-                "emoji": "🐱", 
-                "trap": "🐱 *[Piège du Chat indifférent]* : « Je pourrais ignorer ton message et m'endormir au soleil... Mais pourquoi est-ce que j'ai envie de ronronner près de toi à la place ? »", 
-                "impact": 18, "desc": "Joue l'indifférence pour attirer irrésistiblement."
-            },
-            "Dragon": {
-                "emoji": "🐉", 
-                "trap": "🐉 *[Piège du Dragon ardent]* : « Mon cœur brûle plus fort que mes flammes. Es-tu prêt(e) à te consumer d'amour avec moi ? »", 
-                "impact": 25, "desc": "Brûle les défenses amoureuses en un instant."
-            },
-            "Ange": {
-                "emoji": "👼", 
-                "trap": "👼 *[Piège Céleste]* : « On dit que les anges n'ont pas de cœur... Alors dis-moi pourquoi le mien bat si fort quand tu parles ? »", 
-                "impact": 22, "desc": "Charme angélique irrésistible."
-            },
-            "Phoenix": {
-                "emoji": "🔥", 
-                "trap": "🔥 *[Piège de la Renaissance]* : « Même si mes sentiments brûlent et se réduisent en cendres, je retombe amoureux de toi à chaque seconde. »", 
-                "impact": 25, "desc": "Amour éternel et incandescent."
-            }
+        lower_text = text.lower()
+        avatar = "👤"
+        extra_class = ""
+        impact = 10
+        comment = "Message de drague classique."
+
+        animals_rules = {
+            "/lion": {"name": "Lion", "emoji": "🦁", "beats": ["/loup", "/chat", "/lapin"]},
+            "/loup": {"name": "Loup", "emoji": "🐺", "beats": ["/chat", "/lapin"]},
+            "/chat": {"name": "Chat", "emoji": "🐱", "beats": ["/lapin"]},
+            "/dragon": {"name": "Dragon", "emoji": "🐉", "beats": ["/lion", "/loup", "/chat", "/lapin"]},
+            "/lapin": {"name": "Lapin", "emoji": "🐰", "beats": []}
         }
 
-        trait = animals_traits.get(role, animals_traits["Renard"])
-        avatar = trait["emoji"]
-        
-        # Le message automatique généré par le caractère de l'animal (question piège)
-        trap_message = trait["trap"]
+        matched_animal = None
+        for cmd in animals_rules.keys():
+            if lower_text.startswith(cmd):
+                matched_animal = cmd
+                break
 
-        # Analyse du texte de l'utilisateur (si romantique ou résistant)
-        lower_text = text.lower()
-        if any(w in lower_text for w in ['amour', 't’aime', 'coeur', 'oui', 'tiako', 'ensemble', 'viens']):
-            comment = f"💘 Coup de cœur ! Le charme de l'{role} fait monter la température !"
-            impact = trait["impact"]
-        else:
-            comment = f"🛡️ Résistance active ! L'autre essaie de parer la séduction."
-            impact = -5 # Défense
+        if matched_animal:
+            curr_animal = animals_rules[matched_animal]
+            avatar = curr_animal["emoji"]
+            extra_class = "animal-strategy"
 
-        # Mettre à jour les scores (Jauge d'amour de 0 à 100)
-        # On attribue le score à l'adversaire ou au joueur
-        players = list(game_state["scores"].keys())
-        if sender not in players:
-            if len(players) < 2:
-                game_state["scores"][sender] = 50
+            # Détection d'intelligence (si le message contient une question piège ou de la logique philosophique/rhétorique)
+            smart_keywords = ['si', 'pourquoi', 'comment', 'face à', 'contre', 'rien', 'force', 'esprit', 'malin', 'intelligence', 'stratégie']
+            is_smart = any(k in lower_text for k in smart_keywords) and len(text.split()) > 5
+
+            prev_animal = game_state.get("last_animal")
+
+            if is_smart:
+                # L'intelligence annule l'écart de force brut ! Le petit animal l'emporte par la ruse.
+                impact = 40
+                comment = f"🧠 Coup de génie ! Le {curr_animal['name']} utilise la ruse et une question piège imparable. L'écart de force est annulé, la cible succombe !"
+            elif prev_animal and prev_animal != matched_animal:
+                if matched_animal in animals_rules[prev_animal]["beats"]:
+                    impact = 35
+                    comment = f"⚔️ Victoire tactique ! Le {curr_animal['name']} domine l'animal adverse !"
+                elif prev_animal in curr_animal["beats"]:
+                    impact = -15
+                    comment = f"🛡️ Contre-attaque subie ! L'adversaire était plus fort."
+                else:
+                    impact = 15
+                    comment = f"⚖️ Égalité entre bêtes."
             else:
-                # Remplacer un joueur par défaut ou assigner
-                pass
+                if matched_animal == "/dragon":
+                    impact = 50
+                    comment = f"🔥 Puissance absolue du Dragon !"
+                else:
+                    impact = 20
+                    comment = f"✨ Attaque du {curr_animal['name']} lancée !"
 
-        # Simulation de la progression amoureuse
+            game_state["last_animal"] = matched_animal
+
+            # 1. Message d'alerte et de risque
+            game_state["messages"].append({
+                "sender": f"Système d'Alerte",
+                "role": "Arbitre",
+                "avatar": "⚠️",
+                "text": f"⚠️ *[Analyse Taktike]* : Attaque du **{curr_animal['name']}**. {'🧠 Ruse détectée : Le piège logique annule les forces brutes !' if is_smart else 'Attention au rapport de force !'}",
+                "comment": "Risque et décision tactique",
+                "extra_class": "animal-strategy"
+            })
+
+            # 2. Message de l'attaque
+            game_state["messages"].append({
+                "sender": sender,
+                "role": role,
+                "avatar": avatar,
+                "text": text,
+                "comment": comment,
+                "extra_class": extra_class
+            })
+
+        else:
+            game_state["last_animal"] = None
+            if any(w in lower_text for w in ['amour', 't’aime', 'coeur', 'oui', 'tiako', 'ensemble', 'viens']):
+                impact = 15
+                comment = "💘 Déclaration romantique classique."
+            else:
+                impact = -5
+                comment = "🛡️ Résistance active."
+
+            game_state["messages"].append({
+                "sender": sender,
+                "role": role,
+                "avatar": "👤",
+                "text": text,
+                "comment": comment,
+                "extra_class": ""
+            })
+
+        # Mise à jour de la jauge d'amour
         for p in game_state["scores"]:
             if p != sender:
                 game_state["scores"][p] += impact
@@ -272,28 +305,8 @@ def send():
                     game_state["scores"][p] = 100
                 if game_state["scores"][p] <= 0:
                     game_state["scores"][p] = 0
-                    game_state["winner"] = sender # Le séducteur gagne
+                    game_state["winner"] = sender
 
-        # Enregistrement du message de l'utilisateur
-        game_state["messages"].append({
-            "sender": sender,
-            "role": role,
-            "avatar": avatar,
-            "text": text,
-            "comment": comment,
-            "extra_class": ""
-        })
-
-        # Envoi automatique de la question piège liée au caractère de l'animal
-        game_state["messages"].append({
-            "sender": f"Piège ({role})",
-            "role": role,
-            "avatar": avatar,
-            "text": trap_message,
-            "comment": f"Caractère naturel : {trait['desc']}",
-            "extra_class": "love-trap"
-        })
-        
     return redirect(url_for('index'))
 
 @app.route('/delete/<int:index>')
@@ -309,6 +322,7 @@ def reset_data():
     game_state["messages"] = []
     game_state["scores"] = {"Séducteur": 50, "Défenseur (Cible)": 50}
     game_state["winner"] = None
+    game_state["last_animal"] = None
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
