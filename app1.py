@@ -7,8 +7,9 @@ game_state = {
     "messages": [],
     "scores": {"Séducteur": 50, "Défenseur (Cible)": 50},
     "winner": None,
-    "last_animal": None,
-    "last_animal_name": None
+    "last_animal_power": 0,
+    "last_animal_name": None,
+    "shield_used": {}
 }
 
 HTML_TEMPLATE = """
@@ -17,7 +18,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Duel Stratégique avec Failles</title>
+    <title>Chrono-Royaume - Duel Stratégique & Économie de Points</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -85,8 +86,9 @@ HTML_TEMPLATE = """
         }
         .msg-sender { font-size: 0.75em; color: #b0b3b8; margin-bottom: 3px; margin-left: 4px; }
         .judge-info {
-            font-size: 0.75em; color: #87ceeb; margin-top: 4px; font-style: italic;
-            border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 3px;
+            font-size: 0.8em; color: #ffffff; background: rgba(0, 191, 255, 0.25);
+            margin-top: 6px; padding: 6px; border-radius: 8px; font-weight: bold;
+            border-left: 3px solid #00bfff;
         }
         .delete-link { color: #ff5252; font-size: 0.8em; text-decoration: none; float: right; margin-left: 8px; font-weight: bold; }
 
@@ -106,13 +108,14 @@ HTML_TEMPLATE = """
 
         .victory-overlay {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; padding: 20px;
+            background: rgba(0, 0, 0, 0.92); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; padding: 20px;
         }
         .victory-card {
             background: linear-gradient(135deg, #003366, #162447); border: 3px solid #00bfff;
             padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .victory-title { font-size: 2em; color: #00bfff; margin-bottom: 10px; }
+        .victory-title { font-size: 1.8em; color: #00bfff; margin-bottom: 10px; }
+        .victory-flowers { font-size: 1.5em; margin: 10px 0; }
         .victory-name { font-size: 1.5em; color: #ffffff; margin-bottom: 20px; font-weight: bold; }
         .victory-btn {
             background-color: #00bfff; color: white; border: none; padding: 12px 24px;
@@ -124,16 +127,18 @@ HTML_TEMPLATE = """
 
 <div class="messenger-container">
     <div class="messenger-header">
-        <div class="header-title">💙 Duel Stratégique avec Failles</div>
+        <div class="header-title">💙 Duel d'Amour & Points Stratégiques</div>
         <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
     {% if winner %}
     <div class="victory-overlay">
         <div class="victory-card">
-            <div class="victory-title">🎉 VICTOIRE ÉPIQUE DE L'AMOUR ! 💙</div>
+            <div class="victory-title">🌸 VICTOIRE ÉPIQUE DE L'AMOUR ! 💐</div>
+            <div class="victory-flowers">🌸 🌺 🌷 🌹 🌻 💐 🌸</div>
             <div class="victory-name">Le grand vainqueur :<br><span style="color: #00ffff;">{{ winner }}</span></div>
-            <p style="color: #e4e6eb; margin-bottom: 20px; font-size: 0.9em;">L'adversaire a succombé et le cœur a été conquis !</p>
+            <div class="victory-flowers">🌸 🌺 🌷 🌹 🌻 💐 🌸</div>
+            <p style="color: #e4e6eb; margin-bottom: 20px; font-size: 0.9em;">L'adversaire est à 0 point ! Il a perdu et doit céder !</p>
             <a href="/reset" class="victory-btn">Nouvelle Partie 🔄</a>
         </div>
     </div>
@@ -153,9 +158,9 @@ HTML_TEMPLATE = """
             </div>
             
             <div class="scores-board">
-                <span>🌡️ JAUGE D'AMOUR :</span>
+                <span>🎯 POINTS (SEUILS ANIMAUX) :</span>
                 {% for user, pts in scores.items() %}
-                    <span>{{ user }} : {{ pts }}%</span>
+                    <span>{{ user }} : {{ pts }} pts</span>
                 {% endfor %}
             </div>
         </div>
@@ -169,7 +174,7 @@ HTML_TEMPLATE = """
                         <div class="msg-bubble {{ m.extra_class }}">
                             <a href="/delete/{{ loop.index0 }}" class="delete-link" title="Supprimer">✕</a>
                             {{ m.text }}
-                            <div class="judge-info">💡 {{ m.comment }}</div>
+                            <div class="judge-info">🏆 {{ m.comment }}</div>
                         </div>
                     </div>
                 </div>
@@ -177,7 +182,7 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="messenger-input-area">
-            <input type="text" name="text" class="message-input" placeholder="Aa /lion [message][fausse faille optionnelle]..." required autocomplete="off">
+            <input type="text" name="text" class="message-input" placeholder="Aa /lion [message][faille] ou /bouclier..." required autocomplete="off">
             <button type="submit" class="send-btn" title="Envoyer">➤</button>
         </div>
     </form>
@@ -204,84 +209,106 @@ def send():
     role = request.form.get('role', 'Séducteur Charmant')
     text = request.form.get('text', '').strip()
     
+    if sender not in game_state["scores"]:
+        game_state["scores"][sender] = 50
+
     if text:
         lower_text = text.lower()
         avatar = "👤"
         extra_class = ""
-        impact = 10
         comment = "Message de drague classique."
+        transfer_points = 20
 
-        # Hiérarchie de force des animaux (du plus fort au plus vulnérable)
-        # Puissance : Dragon (5) > Lion (4) > Loup (3) > Chat (2) > Lapin (1)
-        animals_power = {
-            "/dragon": {"name": "Dragon", "emoji": "🐉", "power": 5, "beats": ["/lion", "/loup", "/chat", "/lapin"]},
-            "/lion": {"name": "Lion", "emoji": "🦁", "power": 4, "beats": ["/loup", "/chat", "/lapin"]},
-            "/loup": {"name": "Loup", "emoji": "🐺", "power": 3, "beats": ["/chat", "/lapin"]},
-            "/chat": {"name": "Chat", "emoji": "🐱", "power": 2, "beats": ["/lapin"]},
-            "/lapin": {"name": "Lapin", "emoji": "🐰", "power": 1, "beats": []}
-        }
-
-        matched_animal = None
-        for cmd in animals_power.keys():
-            if lower_text.startswith(cmd):
-                matched_animal = cmd
-                break
-
-        if matched_animal:
-            curr = animals_power[matched_animal]
-            avatar = curr["emoji"]
-            extra_class = "animal-strategy"
-
-            # Extraction du message principal et de la faille potentielle [message][faille]
-            parts = re.findall(r'\[(.*?)\]', text)
-            main_msg = parts[0] if len(parts) > 0 else text[len(matched_animal):].strip()
-            faille_msg = parts[1] if len(parts) > 1 else ""
-
-            prev_animal_key = game_state.get("last_animal")
-            prev_animal_name = game_state.get("last_animal_name", "aucun")
-
-            # Analyse de l'intelligence / de la faille
-            has_valid_faille = len(faille_msg.strip()) > 3
-
-            if prev_animal_key and prev_animal_key != matched_animal:
-                prev = animals_power[prev_animal_key]
-                
-                # Si l'animal actuel est plus faible que le précédent
-                if curr["power"] < prev["power"]:
-                    if has_valid_faille:
-                        # Le petit animal gagne grâce à la faille trouvée !
-                        impact = 35
-                        comment = f"🧠 Coup de génie ! Bien que le {curr['name']} soit plus faible que le {prev['name']}, la faille découverte (« {faille_msg} ») annule la force brute. Victoire de la ruse !"
-                    else:
-                        # Pas de faille : l'animal fort l'emporte et refuse la demande
-                        impact = -15
-                        comment = f"🛡️ Dommage ! Le {prev_animal_name} ({prev['name']}) est plus fort que votre {curr['name']} et vous n'avez fourni aucune faille valide. Il refuse votre demande !"
-                elif curr["power"] > prev["power"]:
-                    impact = 35
-                    comment = f"⚔️ Supériorité écrasante ! Le {curr['name']} surclasse complètement l'{prev['name']} adverse !"
-                else:
-                    impact = 15
-                    comment = f"⚖️ Égalité de force entre les bêtes."
+        # Utilisation du bouclier magique unique
+        if lower_text.startswith('/bouclier'):
+            if game_state["shield_used"].get(sender, False):
+                comment = "🛡️ Erreur : Tu as déjà utilisé ton bouclier unique !"
+                formatted_text = "🛡️ *Tentative de bouclier (Déjà épuisé)*"
             else:
-                impact = 25
-                comment = f"✨ Attaque stratégique du {curr['name']} lancée !"
+                game_state["shield_used"][sender] = True
+                comment = f"🛡️ Bouclier activé ! {sender} bloque l'attaque adverse !"
+                formatted_text = "🛡️ **BOUCLIER MAGIQUE ACTIVÉ !** Attaque bloquée !"
+                game_state["last_animal_power"] = 0
+                game_state["last_animal_name"] = None
 
-            # Mémoriser l'animal actuel pour le tour suivant
-            game_state["last_animal"] = matched_animal
-            game_state["last_animal_name"] = curr["name"]
-
-            # Message d'alerte sur le risque et la force
             game_state["messages"].append({
-                "sender": f"Système d'Arbitrage",
-                "role": "Arbitre",
-                "avatar": "⚠️",
-                "text": f"⚠️ *[Rapport Tactique]* : Attaque du **{curr['name']}** (Puissance : {curr['power']}). {'🧠 Faille exploitée avec succès : L\'écart de force est balayé !' if has_valid_faille else 'Attention au rapport de force face à l\'animal adverse !'}",
-                "comment": "Analyse de la force et des failles",
+                "sender": sender,
+                "role": role,
+                "avatar": "🛡️",
+                "text": formatted_text,
+                "comment": comment,
                 "extra_class": "animal-strategy"
             })
+            return redirect(url_for('index'))
 
-            # Message de l'attaque avec le message de l'utilisateur
-            formatted_text = f"🗣️ « {main_msg} »" + (f" 🔍 [FAILLE EXPLOITÉE : {faille_msg}]" if faille_msg else "")
+        # Détection d'un animal (Bestiaire infini & vérification des seuils de points)
+        animal_match = re.match(r'^/([a-zA-Zà-öø-ÿ]+)', lower_text)
+        
+        if animal_match:
+            animal_name_raw = animal_match.group(1)
+            animal_name = animal_name_raw.capitalize()
+            
+            # Définition de la puissance et du coût requis en points pour invoquer l'animal
+            apex_predators = ['dragon', 'phénix', 'licorne', 'titan', 'kraken', 'lion', 'tigre', 'ours', 'loup']
+            small_animals = ['lapin', 'chat', 'souris', 'grenouille', 'oiseau', 'fourmi']
+            
+            if animal_name_raw in apex_predators:
+                power = 5
+                required_points = 50 # Le lion, dragon, etc. exigent au moins 50 points
+            elif animal_name_raw in small_animals:
+                power = 1
+                required_points = 0 # Accessible tout de suite
+            else:
+                power = 3
+                required_points = 25
+
+            # Vérification si le joueur a assez de points pour débloquer/utiliser cet animal
+            current_player_points = game_state["scores"].get(sender, 50)
+            if current_player_points < required_points:
+                game_state["messages"].append({
+                    "sender": "Système d'Arbitrage",
+                    "role": "Arbitre",
+                    "avatar": "⚠️",
+                    "text": f"❌ **Invocation Impossible !** Tu n'as que {current_player_points} pts, mais le **{animal_name}** exige un minimum de **{required_points} pts** pour être débloqué et utilisé !",
+                    "comment": "Seuil de points insuffisant",
+                    "extra_class": "animal-strategy"
+                })
+                return redirect(url_for('index'))
+
+            avatar = "🐾"
+            extra_class = "animal-strategy"
+
+            parts = re.findall(r'\[(.*?)\]', text)
+            main_msg = parts[0] if len(parts) > 0 else text[len(animal_match.group(0)):].strip()
+            faille_msg = parts[1] if len(parts) > 1 else ""
+
+            prev_power = game_state.get("last_animal_power", 0)
+            prev_name = game_state.get("last_animal_name", "aucun")
+            has_valid_faille = len(faille_msg.strip()) > 3
+
+            # Résolution du combat, des failles et du transfert de points
+            if prev_power > 0 and prev_power != power:
+                if power < prev_power:
+                    if has_valid_faille:
+                        transfer_points = 35
+                        comment = f"🧠 Le {animal_name} gagne par la ruse (faille : « {faille_msg} ») ! Il triomphe du {prev_name} et récupère les points !"
+                    else:
+                        transfer_points = -35 # Le joueur perd des points au profit de l'autre
+                        comment = f"🛡️ Le {prev_name} est plus fort que ton {animal_name} et aucune faille n'a été trouvée ! Le {prev_name} l'emporte, tu n'as pas le choix, tu dois céder !"
+                elif power > prev_power:
+                    transfer_points = 40
+                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} ! Il gagne le duel haut la main, tu n'as pas le choix, tu dois céder !"
+                else:
+                    transfer_points = 15
+                    comment = f"⚖️ Égalité parfaite entre les bêtes."
+            else:
+                transfer_points = 25
+                comment = f"✨ Le {animal_name} frappe fort ! L'adversaire est bousculé."
+
+            game_state["last_animal_power"] = power
+            game_state["last_animal_name"] = animal_name
+
+            formatted_text = f"🗣️ « {main_msg} »" + (f" 🔍 [FAILLE : {faille_msg}]" if faille_msg else "")
             game_state["messages"].append({
                 "sender": sender,
                 "role": role,
@@ -292,15 +319,10 @@ def send():
             })
 
         else:
-            # Message humain normal
-            game_state["last_animal"] = None
+            game_state["last_animal_power"] = 0
             game_state["last_animal_name"] = None
-            if any(w in lower_text for w in ['amour', 't’aime', 'coeur', 'oui', 'tiako', 'ensemble', 'viens']):
-                impact = 15
-                comment = "💙 Déclaration romantique classique validée."
-            else:
-                impact = -5
-                comment = "🛡️ Résistance active."
+            transfer_points = 20
+            comment = "💙 Message de drague validé, transfert de points vers le séducteur !"
 
             game_state["messages"].append({
                 "sender": sender,
@@ -311,15 +333,18 @@ def send():
                 "extra_class": ""
             })
 
-        # Mise à jour des scores (Jauge d'amour)
-        for p in game_state["scores"]:
-            if p != sender:
-                game_state["scores"][p] += impact
-                if game_state["scores"][p] > 100:
-                    game_state["scores"][p] = 100
+        # Transfert réel des points entre les joueurs et vérification de la défaite à 0 point
+        for p in list(game_state["scores"].keys()):
+            if p == sender:
+                if animal_match and transfer_points < 0:
+                    pass # Ne gagne pas de points si l'attaque animale rate sans faille
+                else:
+                    game_state["scores"][p] += abs(transfer_points)
+            else:
+                game_state["scores"][p] -= abs(transfer_points)
                 if game_state["scores"][p] <= 0:
                     game_state["scores"][p] = 0
-                    game_state["winner"] = sender
+                    game_state["winner"] = sender # Le joueur actuel gagne, l'autre tombe à 0 et a perdu
 
     return redirect(url_for('index'))
 
@@ -336,8 +361,9 @@ def reset_data():
     game_state["messages"] = []
     game_state["scores"] = {"Séducteur": 50, "Défenseur (Cible)": 50}
     game_state["winner"] = None
-    game_state["last_animal"] = None
+    game_state["last_animal_power"] = 0
     game_state["last_animal_name"] = None
+    game_state["shield_used"] = {}
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
