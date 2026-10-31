@@ -5,10 +5,12 @@ app = Flask(__name__)
 
 game_state = {
     "messages": [],
-    "scores": {"Séducteur": 50, "Défenseur (Cible)": 50},
+    "scores": {},
+    "roles": {},
     "winner": None,
     "last_animal_power": 0,
     "last_animal_name": None,
+    "last_animal_emoji": "👤",
     "shield_used": {}
 }
 
@@ -18,7 +20,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Duel d'Amour Neutre & Animaux</title>
+    <title>Chrono-Royaume - Duel d'Amour & Dominant</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -127,7 +129,7 @@ HTML_TEMPLATE = """
 
 <div class="messenger-container">
     <div class="messenger-header">
-        <div class="header-title">💙 Duel d'Amour & Points Neutres</div>
+        <div class="header-title">💙 Duel d'Amour & Dominant</div>
         <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
@@ -149,16 +151,13 @@ HTML_TEMPLATE = """
             <div class="config-row">
                 <input type="text" name="username" placeholder="Votre Nom (ex: Tsanta, Tiffanie)" autocomplete="off">
                 <select name="role">
-                    <option value="Séducteur Charmant">🤵 Séducteur Charmant</option>
-                    <option value="Poète Romantique">📜 Poète Romantique</option>
-                    <option value="Mystique ténébreux">🖤 Mystique Ténébreux</option>
-                    <option value="Princesse / Reine">👸 Princesse / Reine</option>
-                    <option value="Aventurier Passionné">🧭 Aventurier Passionné</option>
+                    <option value="Séducteur">💖 Le Séducteur (Attaque & Conquiert)</option>
+                    <option value="Séduit">🛡️ Le Séduit / Cible (Défend & Résiste)</option>
                 </select>
             </div>
             
             <div class="scores-board">
-                <span>🎯 POINTS :</span>
+                <span>🎯 POINTS (ÉQUITABLE) :</span>
                 {% for user, pts in scores.items() %}
                     <span>{{ user }} : {{ pts }} pts</span>
                 {% endfor %}
@@ -206,20 +205,29 @@ def send():
         return redirect(url_for('index'))
 
     sender = request.form.get('username', '').strip() or 'Anonyme'
-    role = request.form.get('role', 'Séducteur Charmant')
+    role = request.form.get('role', 'Séducteur')
     text = request.form.get('text', '').strip()
     
     if sender not in game_state["scores"]:
         game_state["scores"][sender] = 10
+        role_desc = "Tu dois charmer, utiliser des animaux et briser les défenses pour conquérir le cœur !" if role == "Séducteur" else "Tu dois résister, parer les attaques et utiliser ton bouclier ou la ruse pour ne pas céder !"
+        game_state["messages"].append({
+            "sender": "Système d'Arbitrage",
+            "role": "Guide",
+            "avatar": "📜",
+            "text": f"✨ **Entrée en scène de {sender}** en tant que **{role}**.\n💡 *Règle du rôle :* {role_desc}",
+            "comment": "Attribution équitable des rôles",
+            "extra_class": "animal-strategy"
+        })
 
     if text:
         lower_text = text.lower()
         avatar = "👤"
         extra_class = ""
-        comment = "Message de drague neutre (aucun point gagné ou perdu)."
-        point_change = 0 # Neutre par défaut
+        comment = "Message normal et neutre (aucun point gagné ni perdu)."
+        point_change = 0
 
-        # Bouclier magique unique
+        # Bouclier unique
         if lower_text.startswith('/bouclier'):
             if game_state["shield_used"].get(sender, False):
                 comment = "🛡️ Erreur : Tu as déjà utilisé ton bouclier unique !"
@@ -230,6 +238,7 @@ def send():
                 formatted_text = "🛡️ **BOUCLIER MAGIQUE ACTIVÉ !** Attaque bloquée !"
                 game_state["last_animal_power"] = 0
                 game_state["last_animal_name"] = None
+                game_state["last_animal_emoji"] = "🛡️"
 
             game_state["messages"].append({
                 "sender": sender,
@@ -241,27 +250,33 @@ def send():
             })
             return redirect(url_for('index'))
 
-        # Détection d'un animal (Bestiaire infini)
+        # Détection d'un animal
         animal_match = re.match(r'^/([a-zA-Zà-öø-ÿ]+)', lower_text)
         
         if animal_match:
             animal_name_raw = animal_match.group(1)
             animal_name = animal_name_raw.capitalize()
             
+            animal_emojis = {
+                "grenouille": "🐸", "lion": "🦁", "dragon": "🐉", "tigre": "🐅",
+                "loup": "🐺", "chat": "🐱", "lapin": "🐰", "serpent": "🐍",
+                "aigle": "🦅", "ours": "🐻", "phénix": "🔥", "licorne": "🦄"
+            }
+            animal_emoji = animal_emojis.get(animal_name_raw, "🐾")
+            
             apex_predators = ['dragon', 'phénix', 'licorne', 'titan', 'kraken', 'lion', 'tigre', 'ours', 'loup']
             small_animals = ['lapin', 'chat', 'souris', 'grenouille', 'oiseau', 'fourmi']
             
             if animal_name_raw in apex_predators:
                 power = 5
-                point_change = 2 # 2 points max d'enjeu
+                point_change = 2
             elif animal_name_raw in small_animals:
                 power = 1
-                point_change = 1 # 1 point max d'enjeu
+                point_change = 1
             else:
                 power = 3
                 point_change = 1
 
-            avatar = "🐾"
             extra_class = "animal-strategy"
 
             parts = re.findall(r'\[(.*?)\]', text)
@@ -270,33 +285,40 @@ def send():
 
             prev_power = game_state.get("last_animal_power", 0)
             prev_name = game_state.get("last_animal_name", "aucun")
+            prev_emoji = game_state.get("last_animal_emoji", "👤")
             has_valid_faille = len(faille_msg.strip()) > 3
 
+            winning_animal_name = animal_name
+            winning_emoji = animal_emoji
             target_loser = None
+
             if prev_power > 0 and prev_power != power:
                 if power < prev_power:
                     if has_valid_faille:
-                        comment = f"🧠 Le {animal_name} gagne par la ruse (faille : « {faille_msg} ») ! L'adversaire perd {point_change} point(s) !"
+                        comment = f"🧠 Le {animal_name} gagne par la ruse (faille : « {faille_msg} ») ! Il terrasse le {prev_name}. Tu n'as pas le choix, tu dois céder !"
                         for p in game_state["scores"]:
                             if p != sender:
                                 target_loser = p
                     else:
+                        winning_animal_name = prev_name
+                        winning_emoji = prev_emoji
                         comment = f"🛡️ Le {prev_name} est plus fort que ton {animal_name} et aucune faille n'a été trouvée ! Le {prev_name} gagne, tu perds {point_change} point(s) et tu dois céder !"
                         target_loser = sender
                 elif power > prev_power:
-                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} ! Il gagne le duel, l'adversaire perd {point_change} point(s) et doit céder !"
+                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} ! Il domine et gagne le duel. Tu n'as pas le choix, tu dois céder !"
                     for p in game_state["scores"]:
                         if p != sender:
                             target_loser = p
                 else:
                     comment = f"⚖️ Égalité parfaite entre les bêtes."
             else:
-                comment = f"✨ Attaque du {animal_name} lancée !"
+                comment = f"✨ Le {animal_name} prend l'avantage dans ce duel !"
 
+            # Mémoriser le dominant actuel et sa photo (emoji) pour qu'elle reste
             game_state["last_animal_power"] = power
-            game_state["last_animal_name"] = animal_name
+            game_state["last_animal_name"] = winning_animal_name
+            game_state["last_animal_emoji"] = winning_emoji
 
-            # Application de la variation de points (1 ou 2 points max) sur le perdant de l'affrontement
             if target_loser:
                 game_state["scores"][target_loser] -= point_change
                 if game_state["scores"][target_loser] <= 0:
@@ -304,19 +326,34 @@ def send():
                     game_state["winner"] = sender
 
             formatted_text = f"🗣️ « {main_msg} »" + (f" 🔍 [FAILLE : {faille_msg}]" if faille_msg else "")
+            app_avatar = winning_emoji # C'est la photo du dominant qui s'affiche !
+            
+            app.logger.info(f"Vainqueur du tour : {winning_animal_name}")
+
+            app.logger.info(f"Vainqueur du tour : {winning_animal_name}")
+
+            app.logger.info(f"Vainqueur du tour : {winning_animal_name}")
+
+            app.logger.info(f"Vainqueur du tour : {winning_animal_name}")
+
+            app.logger.info(f"Vainqueur du tour : {winning_animal_name}")
+
+            app.logger.info(f"Vainqueur du tour : {winning_animal_name}")
+
             game_state["messages"].append({
                 "sender": sender,
                 "role": role,
-                "avatar": avatar,
+                "avatar": app_avatar,
                 "text": formatted_text,
                 "comment": comment,
                 "extra_class": extra_class
             })
 
         else:
-            # Message humain normal : strictement neutre (ni point gagné, ni point perdu)
+            # Message humain normal : neutre, photo humaine
             game_state["last_animal_power"] = 0
             game_state["last_animal_name"] = None
+            game_state["last_animal_emoji"] = "👤"
             comment = "💙 Message normal et neutre (aucun point gagné ni perdu)."
 
             game_state["messages"].append({
@@ -341,10 +378,12 @@ def delete_msg(index):
 @app.route('/reset')
 def reset_data():
     game_state["messages"] = []
-    game_state["scores"] = {"Séducteur": 10, "Défenseur (Cible)": 10}
+    game_state["scores"] = {}
+    game_state["roles"] = {}
     game_state["winner"] = None
     game_state["last_animal_power"] = 0
     game_state["last_animal_name"] = None
+    game_state["last_animal_emoji"] = "👤"
     game_state["shield_used"] = {}
     return redirect(url_for('index'))
 
