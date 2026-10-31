@@ -16,28 +16,24 @@ HTML_TEMPLATE = """
     <title>Chrono-Royaume Magique 🔮</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        /* CORPS FIXE SANS DÉBORDEMENT */
         html, body {
-            height: 100dvh; width: 100%; overflow: hidden;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #1f4068 0%, #162447 100%);
             display: flex; justify-content: center; align-items: center;
         }
+
         .chat-container {
-            width: 100%; max-width: 450px; height: 100dvh;
+            width: 100%; max-width: 450px; height: 100%;
             background: #ffffff; display: flex; flex-direction: column;
             position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
         @media (min-height: 600px) and (min-width: 460px) {
-            .chat-container { height: 92dvh; border-radius: 16px; overflow: hidden; }
-        }
-        
-        .chat-container.send-effect {
-            animation: containerPulse 0.3s ease;
-        }
-        @keyframes containerPulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(0.99); background-color: #f0f7ff; }
-            100% { transform: scale(1); }
+            .chat-container { height: 92%; border-radius: 16px; overflow: hidden; }
         }
 
         .chat-header {
@@ -64,6 +60,8 @@ HTML_TEMPLATE = """
             border: 1px solid #ccc; font-size: 0.75em; background: #fff;
             outline: none;
         }
+
+        /* ZONE DE MESSAGES DÉROULANTE */
         .chat-messages {
             flex: 1; padding: 10px; overflow-y: auto; background: #f7f9fb;
             display: flex; flex-direction: column; gap: 8px;
@@ -71,12 +69,12 @@ HTML_TEMPLATE = """
         }
         
         @keyframes messageAppear {
-            0% { opacity: 0; transform: translateY(15px) scale(0.95); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
         }
         .msg-wrapper { 
             display: flex; align-items: flex-start; gap: 6px; 
-            animation: messageAppear 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            animation: messageAppear 0.25s ease-out forwards;
         }
 
         .avatar-box {
@@ -106,6 +104,8 @@ HTML_TEMPLATE = """
             font-size: 0.7em; margin-top: 4px; font-style: italic; color: #555;
             border-top: 1px dashed #eee; padding-top: 2px;
         }
+
+        /* ZONE DE SAISIE FIXE EN BAS */
         .chat-input-area {
             padding: 8px; background: #fff; border-top: 1px solid #ddd;
             display: flex; gap: 6px; flex-shrink: 0; align-items: center;
@@ -123,7 +123,7 @@ HTML_TEMPLATE = """
 </head>
 <body>
 
-<div class="chat-container" id="chatContainer">
+<div class="chat-container">
     <div class="chat-header">
         <span>⏳ Chrono-Royaume Magique 🔮</span>
         <button class="header-btn" onclick="resetGame()">🔄 Reset</button>
@@ -164,37 +164,6 @@ HTML_TEMPLATE = """
 </div>
 
 <script>
-function playMagicSound() {
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15);
-
-        gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.15);
-    } catch (e) {
-        // Sécurité pour éviter tout blocage
-    }
-}
-
-function triggerVisualEffect() {
-    const container = document.getElementById('chatContainer');
-    container.classList.add('send-effect');
-    setTimeout(() => {
-        container.classList.remove('send-effect');
-    }, 300);
-}
-
 async function sendMessage() {
     const usernameInput = document.getElementById('username');
     const textInput = document.getElementById('msg-input');
@@ -205,20 +174,20 @@ async function sendMessage() {
     const text = textInput.value;
 
     if (!text.trim()) return;
-    textInput.value = '';
-
-    playMagicSound();
-    triggerVisualEffect();
+    textInput.value = ''; // Vide immédiatement le champ pour éviter les doublons
 
     try {
-        await fetch('/api/send', {
+        const response = await fetch('/api/send', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ sender: username, role, scenario, text })
         });
-        updateChat();
+        
+        if (response.ok) {
+            updateChat();
+        }
     } catch (err) {
-        console.error("Erreur d'envoi", err);
+        console.error("Erreur réseau", err);
     }
 }
 
@@ -286,7 +255,7 @@ async function updateChat() {
     }
 }
 
-setInterval(updateChat, 2000);
+setInterval(updateChat, 2500);
 window.onload = updateChat;
 </script>
 </body>
