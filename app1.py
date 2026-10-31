@@ -14,7 +14,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Messenger</title>
+    <title>Chrono-Royaume - Attaques Animales</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -38,7 +38,6 @@ HTML_TEMPLATE = """
             position: relative;
         }
 
-        /* En-tête fixe */
         .messenger-header {
             flex-shrink: 0;
             background-color: #242526;
@@ -72,7 +71,6 @@ HTML_TEMPLATE = """
             min-height: 0;
         }
 
-        /* Panneau supérieur fixe */
         .top-panel {
             flex-shrink: 0;
             background-color: #242526;
@@ -98,14 +96,22 @@ HTML_TEMPLATE = """
         input[type="text"]:focus {
             border-color: #0084ff;
         }
-        .scores-text {
+        
+        /* Tableau des scores global et clair */
+        .scores-board {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            background-color: #1c1d1e;
+            padding: 6px;
+            border-radius: 10px;
             color: #0084ff;
             font-weight: bold;
-            text-align: center;
             font-size: 0.85em;
+            margin-top: 4px;
+            overflow-x: auto;
         }
 
-        /* Zone de chat centrale déroulante */
         .chat-messages {
             flex: 1;
             overflow-y: auto;
@@ -147,6 +153,28 @@ HTML_TEMPLATE = """
             word-wrap: break-word;
             position: relative;
         }
+        
+        /* Style spécial pour les attaques d'animaux */
+        .msg-bubble.attack-frog {
+            background: linear-gradient(135deg, #1e4620, #0f2611);
+            border: 2px solid #4caf50;
+            animation: pulseAttack 0.5s ease;
+        }
+        .msg-bubble.attack-dragon {
+            background: linear-gradient(135deg, #4a1515, #260a0a);
+            border: 2px solid #ff5722;
+        }
+        .msg-bubble.attack-snake {
+            background: linear-gradient(135deg, #3d1b4e, #1e0d26);
+            border: 2px solid #9c27b0;
+        }
+
+        @keyframes pulseAttack {
+            0% { transform: scale(0.95); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
         .msg-sender {
             font-size: 0.75em;
             color: #b0b3b8;
@@ -170,7 +198,6 @@ HTML_TEMPLATE = """
             font-weight: bold;
         }
 
-        /* BARRE DE SAISIE PLUS LARGE ET FIXE EN BAS */
         .messenger-input-area {
             flex-shrink: 0;
             background-color: #242526;
@@ -179,16 +206,16 @@ HTML_TEMPLATE = """
             display: flex;
             align-items: center;
             gap: 10px;
-            min-height: 64px; /* Augmente la hauteur globale de la barre */
+            min-height: 64px;
         }
         .message-input {
             flex: 1;
             background-color: #3a3b3c;
             border: 1px solid #4e4f50;
             color: #e4e6eb;
-            padding: 12px 18px; /* Plus large et plus haut pour taper facilement */
+            padding: 12px 18px;
             border-radius: 24px;
-            font-size: 1em; /* Taille de texte plus lisible */
+            font-size: 1em;
             outline: none;
             height: 44px;
         }
@@ -219,26 +246,30 @@ HTML_TEMPLATE = """
 
 <div class="messenger-container">
     <div class="messenger-header">
-        <div class="header-title">💬 Chrono-Royaume</div>
+        <div class="header-title">💬 Chrono-Royaume & Bestiaire</div>
         <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
     <form action="/send" method="POST" class="messenger-form">
         <div class="top-panel">
             <div class="config-row">
-                <input type="text" name="username" placeholder="Nom (ex: Tsanta)" value="Tsanta" required>
+                <!-- Champ nom sans valeur par défaut fixe -->
+                <input type="text" name="username" placeholder="Votre Nom (ex: Tsanta, Tiffanie...)" autocomplete="off">
                 <input type="text" name="role" placeholder="Rôle (ex: Sorcier)" value="Sorcier" required>
             </div>
             <div class="config-row">
-                <input type="text" name="scenario" placeholder="Scénario (ex: Drague, Passé...)" value="Drague" required>
+                <input type="text" name="scenario" placeholder="Scénario (ex: Drague, Aventure...)" value="Drague Magique" required>
             </div>
-            <div class="scores-text">
+            
+            <!-- Tableau des scores général affichant tous les participants -->
+            <div class="scores-board">
+                <span>🏆 SCORES :</span>
                 {% if scores %}
                     {% for user, pts in scores.items() %}
-                        {{ user }}: {{ pts }} pts &nbsp;&nbsp;
+                        <span>{{ user }} : {{ pts }} pts</span>
                     {% endfor %}
                 {% else %}
-                    Scores: 0 pts
+                    <span>Aucun point pour l'instant</span>
                 {% endif %}
             </div>
         </div>
@@ -250,7 +281,7 @@ HTML_TEMPLATE = """
                     <div class="avatar-circle">{{ m.avatar }}</div>
                     <div class="msg-content">
                         <div class="msg-sender">{{ m.sender }} ({{ m.role }})</div>
-                        <div class="msg-bubble">
+                        <div class="msg-bubble {{ m.extra_class }}">
                             <a href="/delete/{{ loop.index0 }}" class="delete-link" title="Supprimer">✕</a>
                             {{ m.text }}
                             <div class="judge-info">🌐 [{{ m.scenario }}] ⚖️ {{ m.comment }} (+{{ m.points }}pts)</div>
@@ -260,9 +291,9 @@ HTML_TEMPLATE = """
             {% endfor %}
         </div>
 
-        <!-- Zone de saisie large et confortable -->
+        <!-- Barre de saisie -->
         <div class="messenger-input-area">
-            <input type="text" name="text" class="message-input" placeholder="Aa Message..." required autocomplete="off">
+            <input type="text" name="text" class="message-input" placeholder="Aa Message (ex: /grenouille Bonjour)..." required autocomplete="off">
             <button type="submit" class="send-btn" title="Envoyer">➤</button>
         </div>
     </form>
@@ -282,20 +313,47 @@ def index():
 
 @app.route('/send', methods=['POST'])
 def send():
-    sender = request.form.get('username', 'Anonyme').strip() or 'Anonyme'
+    sender = request.form.get('username', '').strip() or 'Anonyme'
     role = request.form.get('role', 'Personnage').strip() or 'Personnage'
     scenario = request.form.get('scenario', 'Libre').strip() or 'Libre'
     text = request.form.get('text', '').strip()
     
     if text:
-        emojis = ["🧙‍♂️", "✨", "🗡️", "👑", "⏳", "🐉", "🔮", "🧝‍♀️", "🥷", "🧛‍♂️", "🤖", "🦊", "🌟", "🛡️"]
-        avatar = random.choice(emojis)
-
+        avatar = "💬"
+        extra_class = ""
         points = 10
         comment = f"Réplique validée dans '{scenario}' !"
-        if any(w in text.lower() for w in ['amour', 't’aime', 'coeur', 'tiako', 'mandrasa']):
-            points = 20
-            comment = "Coup de cœur romantique absolu !"
+
+        # Gestion des attaques d'animaux spectaculaires (/grenouille, /dragon, /serpent)
+        lower_text = text.lower()
+        if lower_text.startswith('/grenouille'):
+            content = text.replace('/grenouille', '').strip() or 'le vide'
+            avatar = "🐸"
+            extra_class = "attack-frog"
+            text = f"🐸 **ATTAQUE GÉANTE !** Une immense grenouille verte surgit des marécages et **gobe d'un coup de langue fulgurant** le message : *« {content} »* 👅✨"
+            points = 25
+            comment = "Attaque amphibie spectaculaire !"
+        elif lower_text.startswith('/dragon'):
+            content = text.replace('/dragon', '').strip() or 'le vide'
+            avatar = "🐉"
+            extra_class = "attack-dragon"
+            text = f"🐉 **FEU DU DRAGON !** Un dragon colossal descend du ciel et **calcine et dévore** le message : *« {content} »* 🔥💥"
+            points = 30
+            comment = "Carnage draconien absolu !"
+        elif lower_text.startswith('/serpent'):
+            content = text.replace('/serpent', '').strip() or 'le vide'
+            avatar = "🐍"
+            extra_class = "attack-snake"
+            text = f"🐍 **CONSTRICTION MYSTIQUE !** Un serpent légendaire surgit de l'ombre et **s'enroule pour avaler tout rond** le message : *« {content} »* 🌀🌿"
+            points = 25
+            comment = "Attaque serpentine foudroyante !"
+        else:
+            # Attribution d'un avatar selon le rôle classique
+            emojis = {"sorcier": "🧙‍♂️", "magicien": "✨", "guerrier": "🗡️", "roi": "👑", "reine": "👑", "voyageur": "⏳"}
+            avatar = emojis.get(role.lower(), "💬")
+            if any(w in lower_text for w in ['amour', 't’aime', 'coeur', 'tiako', 'mandrasa']):
+                points = 20
+                comment = "Coup de cœur romantique absolu !"
 
         if sender not in game_state["scores"]:
             game_state["scores"][sender] = 100
@@ -308,7 +366,8 @@ def send():
             "avatar": avatar,
             "text": text,
             "comment": comment,
-            "points": points
+            "points": points,
+            "extra_class": extra_class
         })
         
     return redirect(url_for('index'))
