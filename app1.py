@@ -46,11 +46,12 @@ HTML_TEMPLATE = """
         /* En-tête Messenger */
         .messenger-header {
             background-color: #242526;
-            padding: 12px 16px;
+            padding: 10px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid #393a3b;
+            flex-shrink: 0;
         }
         .header-title {
             font-weight: bold;
@@ -61,7 +62,7 @@ HTML_TEMPLATE = """
             background: #3a3b3c;
             color: #b0b3b8;
             border: none;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border-radius: 15px;
             font-size: 0.8em;
             text-decoration: none;
@@ -69,12 +70,21 @@ HTML_TEMPLATE = """
         }
         .reset-btn:hover { background: #4e4f50; }
 
+        /* Formulaire global en flex */
+        .messenger-form {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+
         /* Panneau de configuration supérieur */
         .top-panel {
             background-color: #242526;
             padding: 8px 12px;
             border-bottom: 1px solid #393a3b;
             font-size: 0.8em;
+            flex-shrink: 0;
         }
         .config-row {
             display: flex;
@@ -86,7 +96,7 @@ HTML_TEMPLATE = """
             background-color: #3a3b3c;
             border: 1px solid #393a3b;
             color: #e4e6eb;
-            padding: 8px 12px;
+            padding: 7px 12px;
             border-radius: 20px;
             font-size: 0.85em;
             outline: none;
@@ -98,10 +108,10 @@ HTML_TEMPLATE = """
             color: #0084ff;
             font-weight: bold;
             text-align: center;
-            margin-top: 4px;
+            margin-top: 2px;
         }
 
-        /* Zone de messages (Style Messenger) */
+        /* Zone de messages (défilante) */
         .chat-messages {
             flex: 1;
             padding: 12px;
@@ -110,6 +120,7 @@ HTML_TEMPLATE = """
             display: flex;
             flex-direction: column;
             gap: 12px;
+            min-height: 0;
         }
         .msg-row {
             display: flex;
@@ -165,7 +176,7 @@ HTML_TEMPLATE = """
             font-weight: bold;
         }
 
-        /* Barre de saisie Messenger avec le vrai bouton bleu */
+        /* Barre de saisie Messenger fixée en bas */
         .messenger-input-area {
             background-color: #242526;
             padding: 10px 12px;
@@ -173,6 +184,7 @@ HTML_TEMPLATE = """
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-shrink: 0;
         }
         .message-input {
             flex: 1;
@@ -187,7 +199,6 @@ HTML_TEMPLATE = """
         .message-input::placeholder {
             color: #b0b3b8;
         }
-        /* Bouton Envoyer identique à Messenger */
         .send-btn {
             background-color: #0084ff;
             color: white;
@@ -220,8 +231,8 @@ HTML_TEMPLATE = """
         <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
-    <!-- Formulaire principal englobant les options, le chat et le bouton -->
-    <form action="/send" method="POST" style="display: flex; flex-direction: column; height: calc(100% - 49px);">
+    <!-- Formulaire principal structuré en Flexbox -->
+    <form action="/send" method="POST" class="messenger-form">
         <div class="top-panel">
             <div class="config-row">
                 <input type="text" name="username" placeholder="Votre Nom" value="Tsanta" required>
@@ -267,7 +278,7 @@ HTML_TEMPLATE = """
             {% endfor %}
         </div>
 
-        <!-- Barre de saisie Messenger -->
+        <!-- Barre de saisie Messenger (maintenant toujours visible en bas) -->
         <div class="messenger-input-area">
             <input type="text" name="text" class="message-input" placeholder="Aa Message..." required autocomplete="off">
             <button type="submit" class="send-btn" title="Envoyer">➤</button>
