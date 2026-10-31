@@ -6,7 +6,6 @@ app = Flask(__name__)
 game_state = {
     "messages": [],
     "scores": {"Séducteur": 50, "Défenseur (Cible)": 50},
-    "lives": {"Séducteur": 5, "Défenseur (Cible)": 5}, # Chaque joueur a 5 vies par défaut
     "winner": None,
     "last_animal_power": 0,
     "last_animal_name": None,
@@ -19,7 +18,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Duel d'Amour & Vies</title>
+    <title>Chrono-Royaume - Duel d'Amour Neutre & Animaux</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -56,7 +55,7 @@ HTML_TEMPLATE = """
         }
         .config-row { display: flex; gap: 6px; margin-bottom: 6px; }
         input[type="text"], select {
-            flex: 1; background-color: #3a3b3c; border: 1px solid #3a3b3c; color: #e4e6eb;
+            flex: 1; background-color: #3a3b3c; border: 1px solid #393a3b; color: #e4e6eb;
             padding: 8px 12px; border-radius: 16px; font-size: 0.85em; outline: none;
         }
         input[type="text"]:focus, select:focus { border-color: #00bfff; }
@@ -65,11 +64,6 @@ HTML_TEMPLATE = """
             display: flex; justify-content: center; gap: 15px;
             background-color: #1c1d1e; padding: 6px; border-radius: 10px;
             color: #00bfff; font-weight: bold; font-size: 0.85em; margin-top: 4px; overflow-x: auto;
-        }
-        .lives-board {
-            display: flex; justify-content: center; gap: 15px;
-            background-color: #1c1d1e; padding: 4px; border-radius: 8px;
-            color: #ff5252; font-weight: bold; font-size: 0.8em; margin-top: 4px;
         }
 
         .chat-messages {
@@ -133,7 +127,7 @@ HTML_TEMPLATE = """
 
 <div class="messenger-container">
     <div class="messenger-header">
-        <div class="header-title">💙 Duel d'Amour & Vies</div>
+        <div class="header-title">💙 Duel d'Amour & Points Neutres</div>
         <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
@@ -144,7 +138,7 @@ HTML_TEMPLATE = """
             <div class="victory-flowers">🌸 🌺 🌷 🌹 🌻 💐 🌸</div>
             <div class="victory-name">Le grand vainqueur :<br><span style="color: #00ffff;">{{ winner }}</span></div>
             <div class="victory-flowers">🌸 🌺 🌷 🌹 🌻 💐 🌸</div>
-            <p style="color: #e4e6eb; margin-bottom: 20px; font-size: 0.9em;">L'adversaire n'a plus de vies ! Il a perdu et doit céder !</p>
+            <p style="color: #e4e6eb; margin-bottom: 20px; font-size: 0.9em;">L'adversaire est tombé à 0 point ! Il a perdu et doit céder !</p>
             <a href="/reset" class="victory-btn">Nouvelle Partie 🔄</a>
         </div>
     </div>
@@ -169,12 +163,6 @@ HTML_TEMPLATE = """
                     <span>{{ user }} : {{ pts }} pts</span>
                 {% endfor %}
             </div>
-            <div class="lives-board">
-                <span>❤️ VIES :</span>
-                {% for user, lvs in lives.items() %}
-                    <span>{{ user }} : {{ lvs }}/5 ❤️</span>
-                {% endfor %}
-            </div>
         </div>
 
         <div class="chat-messages" id="chatbox">
@@ -194,7 +182,7 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="messenger-input-area">
-            <input type="text" name="text" class="message-input" placeholder="Aa /lion [message][faille] ou message normal..." required autocomplete="off">
+            <input type="text" name="text" class="message-input" placeholder="Aa /lion [message][faille] ou message neutre..." required autocomplete="off">
             <button type="submit" class="send-btn" title="Envoyer">➤</button>
         </div>
     </form>
@@ -210,7 +198,7 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def index():
-    return render_template_string(HTML_TEMPLATE, messages=game_state["messages"], scores=game_state["scores"], lives=game_state["lives"], winner=game_state["winner"])
+    return render_template_string(HTML_TEMPLATE, messages=game_state["messages"], scores=game_state["scores"], winner=game_state["winner"])
 
 @app.route('/send', methods=['POST'])
 def send():
@@ -222,17 +210,14 @@ def send():
     text = request.form.get('text', '').strip()
     
     if sender not in game_state["scores"]:
-        game_state["scores"][sender] = 50
-    if sender not in game_state["lives"]:
-        game_state["lives"][sender] = 5
+        game_state["scores"][sender] = 10
 
     if text:
         lower_text = text.lower()
         avatar = "👤"
         extra_class = ""
-        comment = "Message de drague classique."
-        point_gain = 10
-        life_loss = 0 # Pas de perte de vie sur un message normal
+        comment = "Message de drague neutre (aucun point gagné ou perdu)."
+        point_change = 0 # Neutre par défaut
 
         # Bouclier magique unique
         if lower_text.startswith('/bouclier'):
@@ -256,7 +241,7 @@ def send():
             })
             return redirect(url_for('index'))
 
-        # Détection d'un animal
+        # Détection d'un animal (Bestiaire infini)
         animal_match = re.match(r'^/([a-zA-Zà-öø-ÿ]+)', lower_text)
         
         if animal_match:
@@ -268,28 +253,13 @@ def send():
             
             if animal_name_raw in apex_predators:
                 power = 5
-                required_points = 50
-                life_loss = 2 # Attaque féroce = 2 vies en moins si échec
+                point_change = 2 # 2 points max d'enjeu
             elif animal_name_raw in small_animals:
                 power = 1
-                required_points = 0
-                life_loss = 1 # Petite attaque = 1 vie en moins
+                point_change = 1 # 1 point max d'enjeu
             else:
                 power = 3
-                required_points = 25
-                life_loss = 1
-
-            current_player_points = game_state["scores"].get(sender, 50)
-            if current_player_points < required_points:
-                game_state["messages"].append({
-                    "sender": "Système d'Arbitrage",
-                    "role": "Arbitre",
-                    "avatar": "⚠️",
-                    "text": f"❌ **Invocation Impossible !** Tu n'as que {current_player_points} pts, mais le **{animal_name}** exige **{required_points} pts** !",
-                    "comment": "Seuil de points insuffisant",
-                    "extra_class": "animal-strategy"
-                })
-                return redirect(url_for('index'))
+                point_change = 1
 
             avatar = "🐾"
             extra_class = "animal-strategy"
@@ -302,41 +272,35 @@ def send():
             prev_name = game_state.get("last_animal_name", "aucun")
             has_valid_faille = len(faille_msg.strip()) > 3
 
-            # Résolution des combats et des vies
             target_loser = None
             if prev_power > 0 and prev_power != power:
                 if power < prev_power:
                     if has_valid_faille:
-                        point_gain = 35
-                        comment = f"🧠 Le {animal_name} gagne par la ruse (faille : « {faille_msg} ») ! L'adversaire perd {life_loss} vie(s) !"
-                        for p in game_state["lives"]:
+                        comment = f"🧠 Le {animal_name} gagne par la ruse (faille : « {faille_msg} ») ! L'adversaire perd {point_change} point(s) !"
+                        for p in game_state["scores"]:
                             if p != sender:
                                 target_loser = p
                     else:
-                        point_gain = 0
-                        comment = f"🛡️ Le {prev_name} est plus fort que ton {animal_name} et aucune faille n'a été trouvée ! Le {prev_name} gagne, tu perd {life_loss} vie(s) et tu dois céder !"
+                        comment = f"🛡️ Le {prev_name} est plus fort que ton {animal_name} et aucune faille n'a été trouvée ! Le {prev_name} gagne, tu perds {point_change} point(s) et tu dois céder !"
                         target_loser = sender
                 elif power > prev_power:
-                    point_gain = 40
-                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} ! Il gagne le duel, l'adversaire perd {life_loss} vie(s) et doit céder !"
-                    for p in game_state["lives"]:
+                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} ! Il gagne le duel, l'adversaire perd {point_change} point(s) et doit céder !"
+                    for p in game_state["scores"]:
                         if p != sender:
                             target_loser = p
                 else:
-                    point_gain = 15
                     comment = f"⚖️ Égalité parfaite entre les bêtes."
             else:
-                point_gain = 25
-                comment = f"✨ Attaque du {animal_name} lancée avec succès !"
+                comment = f"✨ Attaque du {animal_name} lancée !"
 
             game_state["last_animal_power"] = power
             game_state["last_animal_name"] = animal_name
 
-            # Application de la perte de vie pour le perdant de l'affrontement
+            # Application de la variation de points (1 ou 2 points max) sur le perdant de l'affrontement
             if target_loser:
-                game_state["lives"][target_loser] -= life_loss
-                if game_state["lives"][target_loser] <= 0:
-                    game_state["lives"][target_loser] = 0
+                game_state["scores"][target_loser] -= point_change
+                if game_state["scores"][target_loser] <= 0:
+                    game_state["scores"][target_loser] = 0
                     game_state["winner"] = sender
 
             formatted_text = f"🗣️ « {main_msg} »" + (f" 🔍 [FAILLE : {faille_msg}]" if faille_msg else "")
@@ -350,11 +314,10 @@ def send():
             })
 
         else:
-            # Message humain normal : aucun point perdu, simple progression de score
+            # Message humain normal : strictement neutre (ni point gagné, ni point perdu)
             game_state["last_animal_power"] = 0
             game_state["last_animal_name"] = None
-            point_gain = 15
-            comment = "💙 Message de drague validé, les points augmentent sans perdre de vies !"
+            comment = "💙 Message normal et neutre (aucun point gagné ni perdu)."
 
             game_state["messages"].append({
                 "sender": sender,
@@ -364,9 +327,6 @@ def send():
                 "comment": comment,
                 "extra_class": ""
             })
-
-        # Mise à jour des points sans jamais faire baisser les points lors d'un message normal
-        game_state["scores"][sender] += point_gain
 
     return redirect(url_for('index'))
 
@@ -381,8 +341,7 @@ def delete_msg(index):
 @app.route('/reset')
 def reset_data():
     game_state["messages"] = []
-    game_state["scores"] = {"Séducteur": 50, "Défenseur (Cible)": 50}
-    game_state["lives"] = {"Séducteur": 5, "Défenseur (Cible)": 5}
+    game_state["scores"] = {"Séducteur": 10, "Défenseur (Cible)": 10}
     game_state["winner"] = None
     game_state["last_animal_power"] = 0
     game_state["last_animal_name"] = None
