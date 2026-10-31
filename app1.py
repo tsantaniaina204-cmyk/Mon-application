@@ -15,7 +15,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Pouvoirs & Victoire</title>
+    <title>Chrono-Royaume - Jeu Logique & Bestiaire</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -140,7 +140,7 @@ HTML_TEMPLATE = """
             border: 1px solid #4e4f50;
         }
         .msg-content {
-            max-width: 78%;
+            max-width: 82%;
             display: flex;
             flex-direction: column;
         }
@@ -154,19 +154,15 @@ HTML_TEMPLATE = """
             position: relative;
         }
         
-        /* Styles spéciaux pour les attaques et descriptions de pouvoirs */
-        .msg-bubble.attack-frog {
-            background: linear-gradient(135deg, #1e4620, #0f2611);
-            border: 2px solid #4caf50;
-        }
-        .msg-bubble.attack-dragon {
-            background: linear-gradient(135deg, #4a1515, #260a0a);
-            border: 2px solid #ff5722;
-        }
-        .msg-bubble.attack-snake {
-            background: linear-gradient(135deg, #3d1b4e, #1e0d26);
-            border: 2px solid #9c27b0;
-        }
+        /* Styles personnalisés pour chaque attaque animale */
+        .msg-bubble.attack-frog { background: linear-gradient(135deg, #1e4620, #0f2611); border: 2px solid #4caf50; }
+        .msg-bubble.attack-dragon { background: linear-gradient(135deg, #4a1515, #260a0a); border: 2px solid #ff5722; }
+        .msg-bubble.attack-snake { background: linear-gradient(135deg, #3d1b4e, #1e0d26); border: 2px solid #9c27b0; }
+        .msg-bubble.attack-lion { background: linear-gradient(135deg, #5c4308, #2e2103); border: 2px solid #ffc107; }
+        .msg-bubble.attack-wolf { background: linear-gradient(135deg, #2b3a4a, #131b24); border: 2px solid #607d8b; }
+        .msg-bubble.attack-eagle { background: linear-gradient(135deg, #1d4e4e, #0c2626); border: 2px solid #00bcd4; }
+        .msg-bubble.attack-bear { background: linear-gradient(135deg, #4a2e1d, #21130a); border: 2px solid #795548; }
+
         .msg-bubble.power-info {
             background: linear-gradient(135deg, #1f3a5f, #112238);
             border: 2px solid #0084ff;
@@ -213,7 +209,7 @@ HTML_TEMPLATE = """
             color: #e4e6eb;
             padding: 12px 18px;
             border-radius: 24px;
-            font-size: 1em;
+            font-size: 0.95em;
             outline: none;
             height: 44px;
         }
@@ -235,11 +231,10 @@ HTML_TEMPLATE = """
             flex-shrink: 0;
         }
 
-        /* ÉCRAN DE VICTOIRE */
         .victory-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.88);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -284,7 +279,7 @@ HTML_TEMPLATE = """
 
 <div class="messenger-container">
     <div class="messenger-header">
-        <div class="header-title">💬 Chrono-Royaume & Pouvoirs</div>
+        <div class="header-title">💬 Chrono-Royaume & Bestiaire</div>
         <a href="/reset" class="reset-btn">Réinitialiser</a>
     </div>
 
@@ -293,7 +288,7 @@ HTML_TEMPLATE = """
         <div class="victory-card">
             <div class="victory-title">🎉 VICTOIRE ÉPIQUE ! 👑</div>
             <div class="victory-name">Félicitations au grand vainqueur :<br><span style="color: #00ffff;">{{ winner }}</span></div>
-            <p style="color: #e4e6eb; margin-bottom: 20px; font-size: 0.9em;">L'adversaire est tombé à 0 point !</p>
+            <p style="color: #e4e6eb; margin-bottom: 20px; font-size: 0.9em;">L'adversaire n'a plus de points !</p>
             <a href="/reset" class="victory-btn">Nouvelle Partie 🔄</a>
         </div>
     </div>
@@ -306,7 +301,7 @@ HTML_TEMPLATE = """
                 <input type="text" name="role" placeholder="Rôle (ex: Sorcier)" value="Sorcier" required>
             </div>
             <div class="config-row">
-                <input type="text" name="scenario" placeholder="Scénario (ex: Drague, Aventure...)" value="Drague Magique" required>
+                <input type="text" name="scenario" placeholder="Scénario (ex: Drague, Combat...)" value="Drague Magique" required>
             </div>
             
             <div class="scores-board">
@@ -342,7 +337,7 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="messenger-input-area">
-            <input type="text" name="text" class="message-input" placeholder="Aa Message (ex: /grenouille Bonjour)..." required autocomplete="off">
+            <input type="text" name="text" class="message-input" placeholder="Aa Message (ex: /grenouille Bonjour, /lion rugir)..." required autocomplete="off">
             <button type="submit" class="send-btn" title="Envoyer">➤</button>
         </div>
     </form>
@@ -375,77 +370,99 @@ def send():
         extra_class = ""
         points = 10
         comment = f"Réplique validée dans '{scenario}' !"
-
         lower_text = text.lower()
-        
-        # Vérifier si c'est un message d'attaque d'animal
-        if lower_text.startswith('/grenouille'):
-            content = text.replace('/grenouille', '').strip() or 'le vide'
-            avatar = "🐸"
-            extra_class = "attack-frog"
-            text = f"🐸 **ATTAQUE GÉANTE !** Une immense grenouille verte surgit et **gobe d'un coup de langue** : *« {content} »* 👅✨"
-            points = 25
-            comment = "Attaque amphibie spectaculaire !"
-        elif lower_text.startswith('/dragon'):
-            content = text.replace('/dragon', '').strip() or 'le vide'
-            avatar = "🐉"
-            extra_class = "attack-dragon"
-            text = f"🐉 **FEU DU DRAGON !** Un dragon colossal calcine et dévore : *« {content} »* 🔥💥"
-            points = 30
-            comment = "Carnage draconien absolu !"
-        elif lower_text.startswith('/serpent'):
-            content = text.replace('/serpent', '').strip() or 'le vide'
-            avatar = "🐍"
-            extra_class = "attack-snake"
-            text = f"🐍 **CONSTRICTION MYSTIQUE !** Un serpent légendaire avale tout rond : *« {content} »* 🌀🌿"
-            points = 25
-            comment = "Attaque serpentine foudroyante !"
-        else:
-            emojis = {"sorcier": "🧙‍♂️", "magicien": "✨", "guerrier": "🗡️", "roi": "👑", "reine": "👑", "voyageur": "⏳"}
-            role_key = role.lower()
-            avatar = emojis.get(role_key, "🔮")
-            
-            if any(w in lower_text for w in ['amour', 't’aime', 'coeur', 'tiako', 'mandrasa']):
-                points = 20
-                comment = "Coup de cœur romantique absolu !"
 
-            # Créer un message d'explication du pouvoir si c'est la première fois ou selon le rôle
-            powers_db = {
-                "sorcier": {
-                    "action": "invoquer des arcanes ténébreux et altérer la perception du temps",
-                    "pouvoir": "Magie Noire & Illusions",
-                    "usage": "Créer des fausses réalités et manipuler l'esprit de l'adversaire"
-                },
-                "magicien": {
-                    "action": "canalisant les énergies stellaires pour plier les lois physiques",
-                    "pouvoir": "Sortilèges Stellaires",
-                    "usage": "Foudroyer les obstacles et illuminer le dialogue de lumière pure"
-                },
-                "guerrier": {
-                    "action": "se positionner en première ligne avec une force implacable",
-                    "pouvoir": "Frappe de Feu Sacré",
-                    "usage": "Briser les défenses ennemies par la puissance brute"
-                }
+        # Dictionnaire complet des animaux et de leurs attaques stratégiques
+        animals_db = {
+            "/grenouille": {
+                "emoji": "🐸", "class": "attack-frog", "name": "Grenouille Géante",
+                "power": "Gobage Amphibie", "damage": 20,
+                "action": "surgit des marais et **gobe la réplique** avec sa langue gluante !",
+                "desc": "Capacité de Gobage : Supprime le message visé et réduit le score adverse de 20 pts."
+            },
+            "/dragon": {
+                "emoji": "🐉", "class": "attack-dragon", "name": "Dragon Rutilant",
+                "power": "Souffle Draconien", "damage": 30,
+                "action": "descend des cieux et **calcine en cendres** le message !",
+                "desc": "Brûlure Magique : Inflige une perte dévastatrice de 30 pts à l'ennemi."
+            },
+            "/serpent": {
+                "emoji": "🐍", "class": "attack-snake", "name": "Serpent Mystique",
+                "power": "Constriction Cinglante", "damage": 25,
+                "action": "s'enroule furtivement et **étouffe complètement** la réplique !",
+                "desc": "Étouffement : Réduit les points adverses de 25 pts par strangulation."
+            },
+            "/lion": {
+                "emoji": "🦁", "class": "attack-lion", "name": "Lion Royal",
+                "power": "Rugissement Souverain", "damage": 20,
+                "action": "pousse un rugissement colossal qui **fait trembler le royaume** !",
+                "desc": "Terreur Royale : Paralyse l'adversaire et lui fait perdre 20 pts."
+            },
+            "/loup": {
+                "emoji": "🐺", "class": "attack-wolf", "name": "Loup d'Ombre",
+                "power": "Morsure Nocturne", "damage": 18,
+                "action": "attaque en meute et **déchire la réplique** !",
+                "desc": "Traque Nocturne : Une attaque rapide retirant 18 pts à l'ennemi."
+            },
+            "/aigle": {
+                "emoji": "🦅", "class": "attack-eagle", "name": "Aigle Céleste",
+                "power": "Serre Céleste", "damage": 22,
+                "action": "fend les airs et **emporte le message** dans ses serres !",
+                "desc": "Saisie Aérienne : Vole le message et déduit 22 pts au score adverse."
+            },
+            "/ours": {
+                "emoji": "🐻", "class": "attack-bear", "name": "Ours Titanesque",
+                "power": "Coup de Griffe", "damage": 25,
+                "action": "écrase violemment la conversation avec sa force brute !",
+                "desc": "Impact Brut : Écrase la défense adverse pour -25 pts."
             }
-            
-            p_info = powers_db.get(role_key, {
-                "action": f"manier l'art unique du rôle de {role}",
-                "pouvoir": f"Puissance de {role}",
-                "usage": "Surprendre l'adversaire avec des aptitudes inattendues"
-            })
+        }
 
-            # Ajouter un message d'explication du pouvoir avant le message de l'utilisateur
+        # Détection de la commande animale
+        matched_cmd = None
+        for cmd in animals_db.keys():
+            if lower_text.startswith(cmd):
+                matched_cmd = cmd
+                break
+
+        if matched_cmd:
+            a_data = animals_db[matched_cmd]
+            content = text[len(matched_cmd):].strip() or "le message adverse"
+            avatar = a_data["emoji"]
+            extra_class = a_data["class"]
+            
+            # Annonce de la capacité dans le chat
             game_state["messages"].append({
-                "sender": f"Système ({role})",
-                "role": "Guide",
+                "sender": f"Bestiaire ({a_data['name']})",
+                "role": "Invocateur",
                 "scenario": scenario,
-                "avatar": "⚡",
-                "text": f"🔮 **[Révélation du Pouvoir]** : Le personnage **{role}** entre en scène pour **{p_info['action']}**.\n• **Pouvoir :** {p_info['pouvoir']}\n• **Utilisation :** {p_info['usage']}",
-                "comment": "Description du rôle",
+                "avatar": avatar,
+                "text": f"📜 **[Pouvoir Déclenché : {a_data['power']}]**\n• **Action :** {a_data['name']} {a_data['action']}\n• **Effet Logique :** {a_data['desc']}",
+                "comment": f"Dégâts : -{a_data['damage']} pts",
                 "points": 0,
                 "extra_class": "power-info",
                 "is_system": True
             })
+
+            text = f"{avatar} **ATTAQUE ANIMAL !** {a_data['name']} s'empare de : *« {content} »* !"
+            points = a_data["damage"]
+            comment = f"Attaque {a_data['name']} réussie !"
+
+            # Appliquer la pénalité de points à l'adversaire
+            for user in list(game_state["scores"].keys()):
+                if user != sender:
+                    game_state["scores"][user] -= a_data["damage"]
+                    if game_state["scores"][user] <= 0:
+                        game_state["scores"][user] = 0
+                        game_state["winner"] = sender
+
+        else:
+            emojis = {"sorcier": "🧙‍♂️", "magicien": "✨", "guerrier": "🗡️", "roi": "👑", "reine": "👑", "voyageur": "⏳"}
+            avatar = emojis.get(role.lower(), "🔮")
+            
+            if any(w in lower_text for w in ['amour', 't’aime', 'coeur', 'tiako', 'mandrasa']):
+                points = 20
+                comment = "Coup de cœur romantique absolu !"
 
         if sender not in game_state["scores"]:
             game_state["scores"][sender] = 100
@@ -478,13 +495,10 @@ def delete_msg(index):
             
             if author in game_state["scores"]:
                 game_state["scores"][author] -= penalty
-                if game_state["scores"][author] < 0:
+                if game_state["scores"][author] <= 0:
                     game_state["scores"][author] = 0
-
-                for user, pts in game_state["scores"].items():
-                    if pts <= 0:
-                        other_users = [u for u in game_state["scores"].keys() if u != user]
-                        game_state["winner"] = other_users[0] if other_users else "Le Joueur Survivant"
+                    other_users = [u for u in game_state["scores"].keys() if u != author]
+                    game_state["winner"] = other_users[0] if other_users else "Le Vainqueur"
 
     return redirect(url_for('index'))
 
