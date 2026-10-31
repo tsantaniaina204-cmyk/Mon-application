@@ -17,29 +17,27 @@ HTML_TEMPLATE = """
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
-            height: 100%; width: 100%; overflow: hidden;
+            height: 100dvh; width: 100%; overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #1f4068 0%, #162447 100%);
             display: flex; justify-content: center; align-items: center;
         }
         .chat-container {
-            width: 100%; max-width: 450px; height: 100%;
+            width: 100%; max-width: 450px; height: 100dvh;
             background: #ffffff; display: flex; flex-direction: column;
             position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            transition: transform 0.1s ease;
         }
         @media (min-height: 600px) and (min-width: 460px) {
-            .chat-container { height: 92vh; border-radius: 16px; overflow: hidden; }
+            .chat-container { height: 92dvh; border-radius: 16px; overflow: hidden; }
         }
         
-        /* EFFET VISUEL DE SECOUSSE / FLASH LORS DE L'ENVOI */
         .chat-container.send-effect {
             animation: containerPulse 0.3s ease;
         }
         @keyframes containerPulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 rgba(15, 76, 129, 0); }
-            50% { transform: scale(0.99); box-shadow: 0 0 20px rgba(15, 76, 129, 0.5); background-color: #f0f7ff; }
-            100% { transform: scale(1); box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+            0% { transform: scale(1); }
+            50% { transform: scale(0.99); background-color: #f0f7ff; }
+            100% { transform: scale(1); }
         }
 
         .chat-header {
@@ -62,16 +60,16 @@ HTML_TEMPLATE = """
         }
         .config-row { display: flex; gap: 4px; }
         select, input {
-            flex: 1; padding: 5px; border-radius: 5px;
+            flex: 1; padding: 6px; border-radius: 5px;
             border: 1px solid #ccc; font-size: 0.75em; background: #fff;
             outline: none;
         }
         .chat-messages {
             flex: 1; padding: 10px; overflow-y: auto; background: #f7f9fb;
             display: flex; flex-direction: column; gap: 8px;
+            -webkit-overflow-scrolling: touch;
         }
         
-        /* ANIMATION FLUIDE DES MESSAGES */
         @keyframes messageAppear {
             0% { opacity: 0; transform: translateY(15px) scale(0.95); }
             100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -118,7 +116,7 @@ HTML_TEMPLATE = """
         .send-btn {
             background: #0f4c81; color: white; border: none; padding: 0 14px;
             height: 34px; border-radius: 18px; font-weight: bold; cursor: pointer; font-size: 0.8em;
-            transition: transform 0.1s;
+            flex-shrink: 0;
         }
         .send-btn:active { transform: scale(0.92); }
     </style>
@@ -166,7 +164,6 @@ HTML_TEMPLATE = """
 </div>
 
 <script>
-// Fonction pour générer un effet sonore magique (Bip de notification) sans fichier externe
 function playMagicSound() {
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -174,8 +171,8 @@ function playMagicSound() {
         const gainNode = audioCtx.createGain();
 
         oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime); // Note Ré5
-        oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // Montée vers La5
+        oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15);
 
         gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
@@ -186,11 +183,10 @@ function playMagicSound() {
         oscillator.start();
         oscillator.stop(audioCtx.currentTime + 0.15);
     } catch (e) {
-        // Ignore si le navigateur bloque l'audio automatique
+        // Sécurité pour éviter tout blocage
     }
 }
 
-// Déclenchement de l'effet visuel sur le conteneur
 function triggerVisualEffect() {
     const container = document.getElementById('chatContainer');
     container.classList.add('send-effect');
@@ -200,29 +196,37 @@ function triggerVisualEffect() {
 }
 
 async function sendMessage() {
-    const username = document.getElementById('username').value.trim() || 'Anonyme';
+    const usernameInput = document.getElementById('username');
+    const textInput = document.getElementById('msg-input');
+    
+    const username = usernameInput ? usernameInput.value.trim() || 'Anonyme' : 'Anonyme';
     const role = document.getElementById('role').value;
     const scenario = document.getElementById('scenario').value;
-    const text = document.getElementById('msg-input').value;
+    const text = textInput.value;
 
     if (!text.trim()) return;
-    document.getElementById('msg-input').value = '';
+    textInput.value = '';
 
-    // Déclenchement des effets sonores et visuels immédiats à l'envoi
     playMagicSound();
     triggerVisualEffect();
 
-    await fetch('/api/send', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ sender: username, role, scenario, text })
-    });
-
-    updateChat();
+    try {
+        await fetch('/api/send', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ sender: username, role, scenario, text })
+        });
+        updateChat();
+    } catch (err) {
+        console.error("Erreur d'envoi", err);
+    }
 }
 
 function checkEnter(e) {
-    if (e.key === 'Enter') sendMessage();
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+    }
 }
 
 async function deleteMsg(index) {
@@ -242,39 +246,43 @@ async function resetGame() {
 }
 
 async function updateChat() {
-    const res = await fetch('/api/get');
-    const data = await res.json();
-    
-    const box = document.getElementById('chat-box');
-    box.innerHTML = '';
+    try {
+        const res = await fetch('/api/get');
+        const data = await res.json();
+        
+        const box = document.getElementById('chat-box');
+        box.innerHTML = '';
 
-    data.messages.forEach((m, index) => {
-        box.innerHTML += `
-            <div class="msg-wrapper">
-                <div class="avatar-box">${m.avatar}</div>
-                <div class="msg-bubble">
-                    <div class="msg-header-info">
-                        <span class="msg-sender">${m.sender} (${m.role})</span>
-                        <button class="delete-btn" onclick="deleteMsg(${index})" title="Supprimer">❌</button>
+        data.messages.forEach((m, index) => {
+            box.innerHTML += `
+                <div class="msg-wrapper">
+                    <div class="avatar-box">${m.avatar}</div>
+                    <div class="msg-bubble">
+                        <div class="msg-header-info">
+                            <span class="msg-sender">${m.sender} (${m.role})</span>
+                            <button class="delete-btn" onclick="deleteMsg(${index})" title="Supprimer">❌</button>
+                        </div>
+                        <div class="power-tag">⚡ ${m.power}</div>
+                        <div>${m.text}</div>
+                        <div class="judge-note">⚖️ ${m.comment} (+${m.points} pts)</div>
                     </div>
-                    <div class="power-tag">⚡ ${m.power}</div>
-                    <div>${m.text}</div>
-                    <div class="judge-note">⚖️ ${m.comment} (+${m.points} pts)</div>
                 </div>
-            </div>
-        `;
-    });
-    box.scrollTop = box.scrollHeight;
+            `;
+        });
+        box.scrollTop = box.scrollHeight;
 
-    const scoresBoard = document.getElementById('scores-board');
-    scoresBoard.innerHTML = '';
-    const scores = data.scores;
-    if (Object.keys(scores).length === 0) {
-        scoresBoard.innerHTML = '<span>Aucun score pour l\'instant</span>';
-    } else {
-        for (let [user, pts] of Object.entries(scores)) {
-            scoresBoard.innerHTML += `<span>${user}: ${pts} pts</span>`;
+        const scoresBoard = document.getElementById('scores-board');
+        scoresBoard.innerHTML = '';
+        const scores = data.scores;
+        if (Object.keys(scores).length === 0) {
+            scoresBoard.innerHTML = '<span>Aucun score pour l\'instant</span>';
+        } else {
+            for (let [user, pts] of Object.entries(scores)) {
+                scoresBoard.innerHTML += `<span>${user}: ${pts} pts</span>`;
+            }
         }
+    } catch (err) {
+        console.error("Erreur de mise à jour", err);
     }
 }
 
