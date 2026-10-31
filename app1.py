@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, render_template_string, request, redirect, url_for
 
 app = Flask(__name__)
 
@@ -17,7 +17,6 @@ HTML_TEMPLATE = """
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
-        /* CORPS FIXE SANS DÉBORDEMENT */
         html, body {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -43,7 +42,7 @@ HTML_TEMPLATE = """
         }
         .header-btn {
             background: rgba(255,255,255,0.2); color: white; border: none;
-            padding: 3px 8px; border-radius: 10px; font-size: 0.7em; cursor: pointer;
+            padding: 3px 8px; border-radius: 10px; font-size: 0.7em; cursor: pointer; text-decoration: none;
         }
         .scores-board {
             display: flex; justify-content: space-around; background: #e8f4f8;
@@ -61,20 +60,14 @@ HTML_TEMPLATE = """
             outline: none;
         }
 
-        /* ZONE DE MESSAGES DÉROULANTE */
         .chat-messages {
             flex: 1; padding: 10px; overflow-y: auto; background: #f7f9fb;
             display: flex; flex-direction: column; gap: 8px;
             -webkit-overflow-scrolling: touch;
         }
         
-        @keyframes messageAppear {
-            0% { opacity: 0; transform: translateY(10px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
         .msg-wrapper { 
             display: flex; align-items: flex-start; gap: 6px; 
-            animation: messageAppear 0.25s ease-out forwards;
         }
 
         .avatar-box {
@@ -93,7 +86,7 @@ HTML_TEMPLATE = """
         .msg-sender { font-weight: bold; color: #0f4c81; font-size: 0.8em; }
         .delete-btn {
             background: none; border: none; color: #ff6b6b; cursor: pointer;
-            font-size: 0.8em; padding: 0 4px;
+            font-size: 0.8em; padding: 0 4px; text-decoration: none;
         }
         .power-tag {
             font-size: 0.65em; background: #fff3cd; color: #856404;
@@ -105,7 +98,6 @@ HTML_TEMPLATE = """
             border-top: 1px dashed #eee; padding-top: 2px;
         }
 
-        /* ZONE DE SAISIE FIXE EN BAS */
         .chat-input-area {
             padding: 8px; background: #fff; border-top: 1px solid #ddd;
             display: flex; gap: 6px; flex-shrink: 0; align-items: center;
@@ -126,17 +118,24 @@ HTML_TEMPLATE = """
 <div class="chat-container">
     <div class="chat-header">
         <span>⏳ Chrono-Royaume Magique 🔮</span>
-        <button class="header-btn" onclick="resetGame()">🔄 Reset</button>
+        <a href="/reset" class="header-btn">🔄 Reset</a>
     </div>
 
     <div class="scores-board" id="scores-board">
-        <span>Aucun score pour l'instant</span>
+        {% if scores %}
+            {% for user, pts in scores.items() %}
+                <span>{{ user }}: {{ pts }} pts</span>
+            {% endfor %}
+        {% else %}
+            <span>Aucun score pour l'instant</span>
+        {% endif %}
     </div>
 
-    <div class="config-bar">
+    <!-- FORMULAIRE PRINCIPAL -->
+    <form action="/send" method="POST" class="config-bar" style="border:none; padding:6px 8px;">
         <div class="config-row">
-            <input type="text" id="username" placeholder="Ton Prénom" value="Tsanta">
-            <select id="role">
+            <input type="text" name="username" placeholder="Ton Prénom" value="Tsanta">
+            <select name="role">
                 <option value="Sorcier">🔮 Sorcier (Ombre)</option>
                 <option value="Magicien">✨ Magicien (Stellaire)</option>
                 <option value="Guerrier">🗡️ Guerrier (Feu)</option>
@@ -145,118 +144,43 @@ HTML_TEMPLATE = """
                 <option value="Voyageur">⏳ Voyageur (Temporel)</option>
             </select>
         </div>
-        <div class="config-row">
-            <select id="scenario">
+        <div class="config-row" style="margin-top:4px;">
+            <select name="scenario">
                 <option value="Le Royaume Effondré">🏰 Scénario : Royaume Effondré</option>
                 <option value="La Faille Temporelle">⚡ Scénario : Faille Temporelle</option>
                 <option value="Le Labyrinthe des Âmes">🌀 Scénario : Labyrinthe des Âmes</option>
                 <option value="L'Ère des Dragons">🐉 Scénario : Ère des Dragons</option>
             </select>
         </div>
-    </div>
 
-    <div class="chat-messages" id="chat-box"></div>
+        <div class="chat-messages" id="chat-box" style="margin-top:6px; height:180px;">
+            {% for m in messages %}
+                <div class="msg-wrapper">
+                    <div class="avatar-box">{{ m.avatar }}</div>
+                    <div class="msg-bubble">
+                        <div class="msg-header-info">
+                            <span class="msg-sender">{{ m.sender }} ({{ m.role }})</span>
+                            <a href="/delete/{{ loop.index0 }}" class="delete-btn" title="Supprimer">❌</a>
+                        </div>
+                        <div class="power-tag">⚡ {{ m.power }}</div>
+                        <div>{{ m.text }}</div>
+                        <div class="judge-note">⚖️ {{ m.comment }} (+{{ m.points }} pts)</div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
 
-    <div class="chat-input-area">
-        <input type="text" id="msg-input" placeholder="Invoque ta réplique..." onkeypress="checkEnter(event)">
-        <button class="send-btn" onclick="sendMessage()">Lancer</button>
-    </div>
+        <div class="chat-input-area" style="border:none; padding:4px 0 0 0; background:transparent;">
+            <input type="text" name="text" placeholder="Invoque ta réplique..." required autocomplete="off">
+            <button type="submit" class="send-btn">Lancer</button>
+        </div>
+    </form>
 </div>
 
 <script>
-async function sendMessage() {
-    const usernameInput = document.getElementById('username');
-    const textInput = document.getElementById('msg-input');
-    
-    const username = usernameInput ? usernameInput.value.trim() || 'Anonyme' : 'Anonyme';
-    const role = document.getElementById('role').value;
-    const scenario = document.getElementById('scenario').value;
-    const text = textInput.value;
-
-    if (!text.trim()) return;
-    textInput.value = ''; // Vide immédiatement le champ pour éviter les doublons
-
-    try {
-        const response = await fetch('/api/send', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ sender: username, role, scenario, text })
-        });
-        
-        if (response.ok) {
-            updateChat();
-        }
-    } catch (err) {
-        console.error("Erreur réseau", err);
-    }
-}
-
-function checkEnter(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        sendMessage();
-    }
-}
-
-async function deleteMsg(index) {
-    await fetch('/api/delete', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ index })
-    });
-    updateChat();
-}
-
-async function resetGame() {
-    if (confirm("Réinitialiser toute la partie ?")) {
-        await fetch('/api/reset', { method: 'POST' });
-        updateChat();
-    }
-}
-
-async function updateChat() {
-    try {
-        const res = await fetch('/api/get');
-        const data = await res.json();
-        
-        const box = document.getElementById('chat-box');
-        box.innerHTML = '';
-
-        data.messages.forEach((m, index) => {
-            box.innerHTML += `
-                <div class="msg-wrapper">
-                    <div class="avatar-box">${m.avatar}</div>
-                    <div class="msg-bubble">
-                        <div class="msg-header-info">
-                            <span class="msg-sender">${m.sender} (${m.role})</span>
-                            <button class="delete-btn" onclick="deleteMsg(${index})" title="Supprimer">❌</button>
-                        </div>
-                        <div class="power-tag">⚡ ${m.power}</div>
-                        <div>${m.text}</div>
-                        <div class="judge-note">⚖️ ${m.comment} (+${m.points} pts)</div>
-                    </div>
-                </div>
-            `;
-        });
-        box.scrollTop = box.scrollHeight;
-
-        const scoresBoard = document.getElementById('scores-board');
-        scoresBoard.innerHTML = '';
-        const scores = data.scores;
-        if (Object.keys(scores).length === 0) {
-            scoresBoard.innerHTML = '<span>Aucun score pour l\'instant</span>';
-        } else {
-            for (let [user, pts] of Object.entries(scores)) {
-                scoresBoard.innerHTML += `<span>${user}: ${pts} pts</span>`;
-            }
-        }
-    } catch (err) {
-        console.error("Erreur de mise à jour", err);
-    }
-}
-
-setInterval(updateChat, 2500);
-window.onload = updateChat;
+    // Fait défiler automatiquement vers le bas des messages à l'ouverture
+    const box = document.getElementById('chat-box');
+    if(box) { box.scrollTop = box.scrollHeight; }
 </script>
 </body>
 </html>
@@ -264,73 +188,67 @@ window.onload = updateChat;
 
 @app.route('/')
 def index():
-    return render_template_string(HTML_TEMPLATE)
+    return render_template_string(HTML_TEMPLATE, messages=game_state["messages"], scores=game_state["scores"])
 
-@app.route('/api/send', methods=['POST'])
+@app.route('/send', methods=['POST'])
 def send():
-    data = request.json
-    sender = data.get('sender', 'Anonyme')
-    role = data.get('role', 'Sorcier')
-    scenario = data.get('scenario', 'Général')
-    text = data.get('text', '')
+    sender = request.form.get('username', 'Anonyme').strip() or 'Anonyme'
+    role = request.form.get('role', 'Sorcier')
+    scenario = request.form.get('scenario', 'Général')
+    text = request.form.get('text', '').strip()
     
-    role_config = {
-        "Sorcier": {"avatar": "🧙‍♂️", "power": "Magie Noire & Illusions"},
-        "Magicien": {"avatar": "✨", "power": "Sortilèges Stellaires"},
-        "Guerrier": {"avatar": "🗡️", "power": "Frappe de Feu Sacré"},
-        "Mage": {"avatar": "📜", "power": "Anciennes Connaissances"},
-        "Roi/Reine": {"avatar": "👑", "power": "Décret Royal Absolu"},
-        "Voyageur": {"avatar": "⏳", "power": "Manipulation du Temps"}
-    }
-    
-    config = role_config.get(role, {"avatar": "🔮", "power": "Mystère Pur"})
-    avatar = config["avatar"]
-    power = config["power"]
+    if text:
+        role_config = {
+            "Sorcier": {"avatar": "🧙‍♂️", "power": "Magie Noire & Illusions"},
+            "Magicien": {"avatar": "✨", "power": "Sortilèges Stellaires"},
+            "Guerrier": {"avatar": "🗡️", "power": "Frappe de Feu Sacré"},
+            "Mage": {"avatar": "📜", "power": "Anciennes Connaissances"},
+            "Roi/Reine": {"avatar": "👑", "power": "Décret Royal Absolu"},
+            "Voyageur": {"avatar": "⏳", "power": "Manipulation du Temps"}
+        }
+        
+        config = role_config.get(role, {"avatar": "🔮", "power": "Mystère Pur"})
+        avatar = config["avatar"]
+        power = config["power"]
 
-    points = 10
-    comment = f"Le pouvoir de {role} résonne !"
-    lower_text = text.lower()
-    
-    if any(w in lower_text for w in ['amour', 't’aime', 'coeur', 'ensemble', 'toujours', 'tiako']):
-        points = 20
-        comment = "Puissance amoureuse maximale ! 💖"
-    elif any(w in lower_text for w in ['sort', 'feu', 'temps', 'royaume', 'magie', 'pouvoir']):
-        points = 15
-        comment = f"Maîtrise parfaite du pouvoir '{power}' ! ⚡"
+        points = 10
+        comment = f"Le pouvoir de {role} résonne !"
+        lower_text = text.lower()
+        
+        if any(w in lower_text for w in ['amour', 't’aime', 'coeur', 'ensemble', 'toujours', 'tiako']):
+            points = 20
+            comment = "Puissance amoureuse maximale ! 💖"
+        elif any(w in lower_text for w in ['sort', 'feu', 'temps', 'royaume', 'magie', 'pouvoir']):
+            points = 15
+            comment = f"Maîtrise parfaite du pouvoir '{power}' ! ⚡"
 
-    if sender not in game_state["scores"]:
-        game_state["scores"][sender] = 100
-    game_state["scores"][sender] += points
-    
-    game_state["messages"].append({
-        "sender": sender,
-        "role": role,
-        "avatar": avatar,
-        "power": power,
-        "text": text,
-        "comment": comment,
-        "points": points
-    })
-    
-    return jsonify({"status": "ok"})
+        if sender not in game_state["scores"]:
+            game_state["scores"][sender] = 100
+        game_state["scores"][sender] += points
+        
+        game_state["messages"].append({
+            "sender": sender,
+            "role": role,
+            "avatar": avatar,
+            "power": power,
+            "text": text,
+            "comment": comment,
+            "points": points
+        })
+        
+    return redirect(url_for('index'))
 
-@app.route('/api/delete', methods=['POST'])
-def delete_msg():
-    data = request.json
-    index = data.get('index')
-    if index is not None and 0 <= index < len(game_state["messages"]):
+@app.route('/delete/<int:index>')
+def delete_msg(index):
+    if 0 <= index < len(game_state["messages"]):
         game_state["messages"].pop(index)
-    return jsonify({"status": "ok"})
+    return redirect(url_for('index'))
 
-@app.route('/api/get')
-def get_data():
-    return jsonify(game_state)
-
-@app.route('/api/reset', methods=['POST'])
+@app.route('/reset')
 def reset_data():
     game_state["messages"] = []
     game_state["scores"] = {}
-    return jsonify({"status": "ok"})
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
