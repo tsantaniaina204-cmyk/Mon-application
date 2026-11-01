@@ -5,7 +5,7 @@ import json
 import random
 
 app = Flask(__name__)
-app.secret_key = "chrono_royaume_secret_key" # Nécessaire pour mémoriser les sessions des utilisateurs
+app.secret_key = "chrono_royaume_secret_key"
 
 # 🔒 TES CLÉS API PROTÉGÉES (Découpées et concaténées)
 k1 = "AQ.Ab8RN6J" + "PeHip7Jde" + "-XcNB1"
@@ -34,21 +34,20 @@ game_state = {
     "messages": [],
     "scores": {},
     "winner": None,
-    "status": "PLAYING", # PLAYING, PAUSED, STOPPED
+    "status": "PLAYING",
     "last_animal_power": 0,
     "last_animal_name": None,
     "last_animal_emoji": "👤",
-    "last_animal_color": "#00bfff",
     "shield_used": {}
 }
 
 def call_gemini(prompt_text):
     active_key = random.choice(GEMINI_API_KEYS)
     if not active_key:
-        return "Je t'aime de tout mon cœur, peu importe ton attaque !"
+        return prompt_text
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={active_key}"
-    data = {"contents": [{"parts": [{"text": prompt_text}]}] }
+    data = {"contents": [{"parts": [{"text": prompt_text}]}]}
 
     try:
         req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers={'Content-Type': 'application/json'})
@@ -56,8 +55,8 @@ def call_gemini(prompt_text):
             res_json = json.loads(response.read().decode())
             return res_json["candidates"][0]["content"]["parts"][0]["text"].strip()
     except Exception as e:
-        print("Erreur API Gemini:", e.strerror if hasattr(e, 'strerror') else str(e))
-        return "Mon amour est plus fort que ton attaque !"
+        print("Erreur API Gemini:", e)
+        return prompt_text
 
 
 HTML_TEMPLATE = """
@@ -66,7 +65,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Compte Facebook & Commandes IA</title>
+    <title>Chrono-Royaume - Discussion Gauche/Droite & Photos CSS</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -89,7 +88,7 @@ HTML_TEMPLATE = """
             padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid #393a3b; z-index: 10;
         }
-        .header-title { font-weight: bold; font-size: 0.95em; color: #00bfff; display: flex; align-items: center; gap: 6px; }
+        .header-title { font-weight: bold; font-size: 0.9em; color: #00bfff; display: flex; align-items: center; gap: 6px; }
         .header-actions { display: flex; gap: 6px; }
         .action-btn {
             background: #3a3b3c; color: #00bfff; border: none;
@@ -110,25 +109,38 @@ HTML_TEMPLATE = """
 
         .chat-messages {
             flex: 1; overflow-y: auto; padding: 12px;
-            background-color: #18191a; display: flex; flex-direction: column; gap: 12px; min-height: 0;
+            background-color: #18191a; display: flex; flex-direction: column; gap: 14px; min-height: 0;
         }
-        .msg-row { display: flex; align-items: flex-end; gap: 8px; }
+        
+        /* GESTION DISCUSSIONS GAUCHE / DROITE */
+        .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; }
+        .msg-row.left { justify-content: flex-start; }
+        .msg-row.right { justify-content: flex-end; flex-direction: row-reverse; }
+
         .avatar-circle {
             width: 34px; height: 34px; border-radius: 50%; background-color: #3a3b3c;
             display: flex; align-items: center; justify-content: center; font-size: 1.1em; flex-shrink: 0; border: 1px solid #00bfff;
         }
-        .msg-content { max-width: 85%; display: flex; flex-direction: column; }
+        .msg-content { max-width: 80%; display: flex; flex-direction: column; }
+        .msg-row.right .msg-content { align-items: flex-end; }
+
         .msg-bubble {
-            background-color: #3a3b3c; color: #e4e6eb; padding: 10px 14px;
+            color: #e4e6eb; padding: 10px 14px;
             border-radius: 18px; font-size: 0.9em; word-wrap: break-word; position: relative;
         }
         .msg-sender { font-size: 0.75em; color: #b0b3b8; margin-bottom: 3px; margin-left: 4px; }
+        .msg-row.right .msg-sender { margin-right: 4px; margin-left: 0; text-align: right; }
         
-        .animal-gif-container {
-            width: 100%; max-height: 180px; border-radius: 12px; overflow: hidden; margin-bottom: 8px;
-            display: flex; justify-content: center; align-items: center; background: #000;
+        /* GRANDE PHOTO DE L'ANIMAL EN CSS (FIXE ET MIGNONNE) */
+        .animal-css-card {
+            width: 100%; height: 140px; border-radius: 12px; margin-bottom: 8px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 3.5em; border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
         }
-        .animal-gif-container img { width: 100%; height: 160px; object-fit: cover; border-radius: 10px; }
+        .animal-name-badge {
+            font-size: 0.3em; background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 8px; margin-top: 5px; font-weight: bold; color: #fff; text-transform: uppercase;
+        }
 
         .judge-info {
             font-size: 0.8em; color: #ffffff; background: rgba(0, 191, 255, 0.25);
@@ -151,7 +163,7 @@ HTML_TEMPLATE = """
             border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2em; flex-shrink: 0;
         }
 
-        /* MODALE PROFIL (STYLE FACEBOOK) */
+        /* MODALE PROFIL */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 200; padding: 20px;
@@ -174,7 +186,6 @@ HTML_TEMPLATE = """
             border-radius: 20px; font-size: 1em; font-weight: bold; cursor: pointer;
         }
 
-        /* OVERLAY VICTOIRE / PAUSE / STOP */
         .overlay {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.92); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; padding: 20px;
@@ -192,11 +203,10 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
-    <!-- 👤 MODALE DE CONFIGURATION DU COMPTE (STYLE FACEBOOK) -->
     {% if show_profile_modal %}
     <div class="modal-overlay">
         <div class="modal-card">
-            <div class="modal-title">⚙️ Paramètres du Compte Facebook</div>
+            <div class="modal-title">⚙️ Paramètres du Compte</div>
             <form action="/save_profile" method="POST">
                 <input type="text" name="username" class="modal-input" value="{{ session.get('username', '') }}" placeholder="Votre Nom (ex: Tsanta)" required autocomplete="off">
                 <select name="role" class="modal-select">
@@ -209,7 +219,6 @@ HTML_TEMPLATE = """
     </div>
     {% endif %}
 
-    <!-- 🌸 ÉCRAN DE VICTOIRE -->
     {% if winner %}
     <div class="overlay">
         <div class="modal-card" style="background: linear-gradient(135deg, #003366, #162447);">
@@ -223,21 +232,18 @@ HTML_TEMPLATE = """
     </div>
     {% endif %}
 
-    <!-- ⏸️ ÉCRAN PAUSE OU STOP -->
     {% if game_status == 'PAUSED' %}
     <div class="overlay">
         <div class="modal-card">
             <h2 style="color: #ff9800; margin-bottom: 15px;">⏸️ JEU EN PAUSE</h2>
-            <p style="margin-bottom: 20px; color: #b0b3b8;">Le duel est temporairement suspendu.</p>
-            <a href="/start_game" class="modal-btn" style="text-decoration: none; display: inline-block;">Reprendre (/start) ▶️</a>
+            <a href="/start_game" class="modal-btn" style="text-decoration: none; display: inline-block; margin-top: 15px;">Reprendre (/start) ▶️</a>
         </div>
     </div>
     {% elif game_status == 'STOPPED' %}
     <div class="overlay">
         <div class="modal-card">
             <h2 style="color: #ff5252; margin-bottom: 15px;">🛑 JEU ARRÊTÉ</h2>
-            <p style="margin-bottom: 20px; color: #b0b3b8;">La partie a été stoppée par un joueur.</p>
-            <a href="/start_game" class="modal-btn" style="text-decoration: none; display: inline-block;">Redémarrer (/start) 🔄</a>
+            <a href="/start_game" class="modal-btn" style="text-decoration: none; display: inline-block; margin-top: 15px;">Redémarrer (/start) 🔄</a>
         </div>
     </div>
     {% endif %}
@@ -251,23 +257,24 @@ HTML_TEMPLATE = """
                         <span><b>{{ user }}</b> : {{ pts }} pts</span>
                     {% endfor %}
                 {% else %}
-                    <span>En attente de connexion...</span>
+                    <span>En attente...</span>
                 {% endif %}
             </div>
         </div>
 
         <div class="chat-messages" id="chatbox">
             {% for m in messages %}
-                <div class="msg-row">
+                <div class="msg-row {{ 'right' if m.is_current_user else 'left' }}">
                     <div class="avatar-circle">{{ m.avatar }}</div>
                     <div class="msg-content">
                         <div class="msg-sender">{{ m.sender }} ({{ m.role }})</div>
                         <div class="msg-bubble" style="background: {{ m.bg_color }}; border: 2px solid {{ m.border_color }};">
                             <a href="/delete/{{ loop.index0 }}" class="delete-link" title="Supprimer">✕</a>
                             
-                            {% if m.gif_url %}
-                            <div class="animal-gif-container">
-                                <img src="{{ m.gif_url }}" alt="Animal Animé">
+                            {% if m.css_card %}
+                            <div class="animal-css-card" style="background: {{ m.css_card.bg }};">
+                                <span>{{ m.css_card.emoji }}</span>
+                                <div class="animal-name-badge">{{ m.css_card.name }}</div>
                             </div>
                             {% endif %}
 
@@ -296,11 +303,19 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def index():
-    # Si le nom n'est pas encore défini en session, on affiche la modale profil
     show_profile_modal = 'username' not in session or not session['username']
+    
+    # Marquer les messages selon si c'est l'utilisateur actuel (pour aligner à droite ou à gauche)
+    current_user = session.get('username', '')
+    formatted_messages = []
+    for m in game_state["messages"]:
+        m_copy = m.copy()
+        m_copy['is_current_user'] = (m['sender'] == current_user)
+        formatted_messages.append(m_copy)
+
     return render_template_string(
         HTML_TEMPLATE, 
-        messages=game_state["messages"], 
+        messages=formatted_messages, 
         scores=game_state["scores"], 
         winner=game_state["winner"],
         game_status=game_state["status"],
@@ -309,7 +324,6 @@ def index():
 
 @app.route('/profile')
 def profile():
-    # Ouvre la modale pour changer de nom ou de rôle (Style Facebook)
     return render_template_string(
         HTML_TEMPLATE, 
         messages=game_state["messages"], 
@@ -354,7 +368,7 @@ def send():
     if text:
         lower_text = text.lower()
 
-        # 🛑 GESTION DES COMMANDES SPÉCIALES (/stop, /pause, /start, /ia)
+        # Commandes spéciales
         if lower_text == '/stop':
             game_state["status"] = "STOPPED"
             return redirect(url_for('index'))
@@ -365,36 +379,32 @@ def send():
             game_state["status"] = "PLAYING"
             return redirect(url_for('index'))
         
-        # 🤖 GESTION DE LA COMMANDE /IA (Gemini répond à ta place)
+        # Commande /IA
         if lower_text.startswith('/ia'):
-            # Trouver la dernière attaque de l'adversaire
-            last_enemy_attack = "une déclaration d'amour ou une attaque"
+            last_enemy_attack = "une déclaration d'amour"
             for m in reversed(game_state["messages"]):
                 if m["sender"] != sender and m["sender"] != "Système d'Arbitrage":
                     last_enemy_attack = m["text"]
                     break
             
-            prompt_ia = f"""
-            Tu es l'intelligence artificielle qui joue à la place de {sender} ({role}) dans un duel de séduction stratégique.
-            L'adversaire vient de dire ou d'attaquer avec : "{last_enemy_attack}".
-            Génère une réplique romantique, piquante ou une contre-attaque intelligente avec un animal (ex: /lion ou /dragon) et une faille pour le contrer.
-            Format attendu : /lion [ta réponse romantique][ta faille astucieuse]
-            """
-            ai_response = call_gemini(prompt_ia)
-            text = ai_response # On remplace le texte par la réponse générée par Gemini !
+            prompt_ia = f"Joue à la place de {sender}. L'adversaire a dit: '{last_enemy_attack}'. Réponds avec une attaque animale et une faille au format: /lion [texte][faille]"
+            text = call_gemini(prompt_ia)
             lower_text = text.lower()
 
-        avatar = "👤"
+        # 🤖 CORRECTION AUTOMATIQUE DES FAUTES PAR GEMINI
+        correction_prompt = f"Corrige uniquement les fautes de frappe et d'orthographe de ce message en conservant son sens exact et son format : '{text}'"
+        text = call_gemini(correction_prompt)
+        lower_text = text.lower()
+
         comment = "Message normal et neutre (aucun point gagné ni perdu)."
         point_change = 0
         bg_color = "#3a3b3c"
         border_color = "#393a3b"
-        gif_url = None
+        css_card = None
 
-        # Bouclier unique
         if lower_text.startswith('/bouclier'):
             if game_state["shield_used"].get(sender, False):
-                comment = "🛡️ Erreur : Tu as déjà utilisé ton bouclier unique !"
+                comment = "🛡️ Erreur : Tu a déjà utilisé ton bouclier unique !"
                 formatted_text = "🛡️ *Tentative de bouclier (Déjà épuisé)*"
             else:
                 game_state["shield_used"][sender] = True
@@ -411,37 +421,43 @@ def send():
                 "comment": comment,
                 "bg_color": "#002244",
                 "border_color": "#00bfff",
-                "gif_url": None
+                "css_card": None
             })
             return redirect(url_for('index'))
 
-        # Bestiaire complet avec GIFs animés
+        # Bestiaire complet avec grande carte CSS statique (mignonne)
         animal_match = re.match(r'^/([a-zA-Zà-öø-ÿ]+)', lower_text)
         
         if animal_match:
             animal_name_raw = animal_match.group(1)
             animal_name = animal_name_raw.capitalize()
             
+            # Base de données CSS des animaux (Grande photo fixe et mignonne)
             animal_database = {
-                "grenouille": {"emoji": "🐸", "color": "#2e7d32", "border": "#4caf50", "gif": "https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif"},
-                "lion": {"emoji": "🦁", "color": "#b71c1c", "border": "#ff5252", "gif": "https://media.giphy.com/media/l0HlOBZOM7zivw2vS/giphy.gif"},
-                "dragon": {"emoji": "🐉", "color": "#4a148c", "border": "#9c27b0", "gif": "https://media.giphy.com/media/fYl6op4uTBUBy/giphy.gif"},
-                "tigre": {"emoji": "🐅", "color": "#e65100", "border": "#ff9800", "gif": "https://media.giphy.com/media/12bjQ7uaduOQCs/giphy.gif"},
-                "loup": {"emoji": "🐺", "color": "#263238", "border": "#78909c", "gif": "https://media.giphy.com/media/8qDz8M6JghIwM/giphy.gif"},
-                "chat": {"emoji": "🐱", "color": "#f57f17", "border": "#ffeb3b", "gif": "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif"},
-                "lapin": {"emoji": "🐰", "color": "#ad1457", "border": "#ff4081", "gif": "https://media.giphy.com/media/3o6ZsS8GFJKJeHoSQE/giphy.gif"},
-                "serpent": {"emoji": "🐍", "color": "#1b5e20", "border": "#81c784", "gif": "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif"},
-                "ours": {"emoji": "🐻", "color": "#4e342e", "border": "#8d6e63", "gif": "https://media.giphy.com/media/xTiTnMhJTwNHChdTZS/giphy.gif"},
-                "aigle": {"emoji": "🦅", "color": "#01579b", "border": "#03a9f4", "gif": "https://media.giphy.com/media/l4FGpP4lxCKgK5TB6/giphy.gif"},
-                "phénix": {"emoji": "🔥", "color": "#bf360c", "border": "#ff5722", "gif": "https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif"},
-                "licorne": {"emoji": "🦄", "color": "#880e4f", "border": "#e91e63", "gif": "https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif"}
+                "grenouille": {"emoji": "🐸", "color": "linear-gradient(135deg, #2e7d32, #81c784)", "border": "#4caf50"},
+                "lion": {"emoji": "🦁", "color": "linear-gradient(135deg, #b71c1c, #ff8a80)", "border": "#ff5252"},
+                "dragon": {"emoji": "🐉", "color": "linear-gradient(135deg, #4a148c, #ba68c8)", "border": "#9c27b0"},
+                "tigre": {"emoji": "🐅", "color": "linear-gradient(135deg, #e65100, #ffb74d)", "border": "#ff9800"},
+                "loup": {"emoji": "🐺", "color": "linear-gradient(135deg, #263238, #b0bec5)", "border": "#78909c"},
+                "chat": {"emoji": "🐱", "color": "linear-gradient(135deg, #f57f17, #fff176)", "border": "#ffeb3b"},
+                "lapin": {"emoji": "🐰", "color": "linear-gradient(135deg, #ad1457, #f48fb1)", "border": "#ff4081"},
+                "serpent": {"emoji": "🐍", "color": "linear-gradient(135deg, #1b5e20, #a5d6a7)", "border": "#81c784"},
+                "ours": {"emoji": "🐻", "color": "linear-gradient(135deg, #4e342e, #d7ccc8)", "border": "#8d6e63"},
+                "aigle": {"emoji": "🦅", "color": "linear-gradient(135deg, #01579b, #81d4fa)", "border": "#03a9f4"},
+                "phénix": {"emoji": "🔥", "color": "linear-gradient(135deg, #bf360c, #ffab91)", "border": "#ff5722"},
+                "licorne": {"emoji": "🦄", "color": "linear-gradient(135deg, #880e4f, #f8bbd0)", "border": "#e91e63"}
             }
             
-            a_info = animal_database.get(animal_name_raw, {"emoji": "🐾", "color": "#003366", "border": "#00bfff", "gif": "https://media.giphy.com/media/3oz8xLd9DJq2l2VFtu/giphy.gif"})
+            a_info = animal_database.get(animal_name_raw, {"emoji": "🐾", "color": "linear-gradient(135deg, #003366, #00bfff)", "border": "#00bfff"})
             avatar = a_info["emoji"]
-            bg_color = "linear-gradient(135deg, " + a_info["color"] + ", #18191a)"
+            bg_color = "linear-gradient(135deg, #002244, #18191a)"
             border_color = a_info["border"]
-            gif_url = a_info["gif"]
+            
+            css_card = {
+                "emoji": a_info["emoji"],
+                "bg": a_info["color"],
+                "name": animal_name
+            }
 
             apex_predators = ['dragon', 'phénix', 'licorne', 'titan', 'kraken', 'lion', 'tigre', 'ours', 'loup']
             small_animals = ['lapin', 'chat', 'souris', 'grenouille', 'oiseau', 'fourmi']
@@ -463,29 +479,18 @@ def send():
             prev_power = game_state.get("last_animal_power", 0)
             prev_name = game_state.get("last_animal_name", "aucun")
             prev_emoji = game_state.get("last_animal_emoji", "👤")
-            prev_color = game_state.get("last_animal_color", "#00bfff")
-            prev_gif = game_state.get("last_animal_gif", None)
+            prev_card = game_state.get("last_css_card", None)
 
             # Jugement intelligent de la faille par Gemini
             has_valid_faille = False
             if prev_power > 0 and power < prev_power and len(faille_msg.strip()) > 3:
-                # Prompt sécurisé vers l'API Gemini
-                active_key = random.choice(GEMINI_API_KEYS)
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={active_key}"
                 prompt = f"Arbitre de séduction: L'animal '{animal_name}' attaque '{prev_name}' avec la faille: '{faille_msg}'. Est-ce logique et valable ? Réponds UNIQUEMENT 'OUI' ou 'NON'."
-                try:
-                    req = urllib.request.Request(url, data=json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode('utf-8'), headers={'Content-Type': 'application/json'})
-                    with urllib.request.urlopen(req) as response:
-                        res_json = json.loads(response.read().decode())
-                        ans = res_json["candidates"][0]["content"]["parts"][0]["text"].strip().upper()
-                        has_valid_faille = "OUI" in ans
-                except:
-                    has_valid_faille = len(faille_msg.strip()) > 5
+                ans = call_gemini(prompt).upper()
+                has_valid_faille = "OUI" in ans
 
             winning_animal_name = animal_name
             winning_emoji = avatar
-            winning_color = border_color
-            winning_gif = gif_url
+            winning_card = css_card
             
             loser_player = None
             winner_player = sender
@@ -502,8 +507,7 @@ def send():
                     else:
                         winning_animal_name = prev_name
                         winning_emoji = prev_emoji
-                        winning_color = prev_color
-                        winning_gif = prev_gif
+                        winning_card = prev_card
                         comment = f"🛡️ **Gemini a rejeté la faille** ! Le {prev_name} l'emporte (tu perds {point_change} pt) !"
                         loser_player = sender
                         winner_player = prev_name if prev_name != "aucun" else [p for p in game_state["scores"] if p != sender][0]
@@ -519,8 +523,7 @@ def send():
             game_state["last_animal_power"] = power
             game_state["last_animal_name"] = winning_animal_name
             game_state["last_animal_emoji"] = winning_emoji
-            game_state["last_animal_color"] = winning_color
-            game_state["last_animal_gif"] = winning_gif
+            game_state["last_css_card"] = winning_card
 
             if loser_player and loser_player in game_state["scores"]:
                 game_state["scores"][loser_player] -= point_change
@@ -545,15 +548,14 @@ def send():
                 "comment": comment,
                 "bg_color": bg_color,
                 "border_color": border_color,
-                "gif_url": winning_gif
+                "css_card": winning_card
             })
 
         else:
             game_state["last_animal_power"] = 0
             game_state["last_animal_name"] = None
             game_state["last_animal_emoji"] = "👤"
-            game_state["last_animal_color"] = "#00bfff"
-            game_state["last_animal_gif"] = None
+            game_state["last_css_card"] = None
             comment = "💙 Message normal et neutre (aucun point gagné ni perdu)."
 
             game_state["messages"].append({
@@ -564,7 +566,7 @@ def send():
                 "comment": comment,
                 "bg_color": "#3a3b3c",
                 "border_color": "#393a3b",
-                "gif_url": None
+                "css_card": None
             })
 
     return redirect(url_for('index'))
@@ -586,8 +588,7 @@ def reset_data():
     game_state["last_animal_power"] = 0
     game_state["last_animal_name"] = None
     game_state["last_animal_emoji"] = "👤"
-    game_state["last_animal_color"] = "#00bfff"
-    game_state["last_animal_gif"] = None
+    game_state["last_css_card"] = None
     game_state["shield_used"] = {}
     session.clear()
     return redirect(url_for('index'))
