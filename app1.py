@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template_string, request, redirect, url_for, session
 import re
 import urllib.request
 import json
@@ -65,7 +65,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Duel d'Amour en Direct (Sans Interruption)</title>
+    <title>Chrono-Royaume - Duel d'Amour Fluide</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -201,7 +201,7 @@ HTML_TEMPLATE = """
 
 <div class="messenger-container">
     <div class="messenger-header">
-        <div class="header-title">💙 <span id="current-username">{{ session.get('username', 'Invité') }}</span> (<span id="current-role">{{ session.get('role', 'Séducteur') }}</span>)</div>
+        <div class="header-title">💙 <span>{{ session.get('username', 'Invité') }}</span> ({{ session.get('role', 'Séducteur') }})</div>
         <div class="header-actions">
             <a href="/profile" class="action-btn">⚙️ Compte</a>
             <a href="/reset" class="action-btn" style="color: #ff5252;">Réinit</a>
@@ -255,7 +255,7 @@ HTML_TEMPLATE = """
 
     <form action="/send" method="POST" class="messenger-form">
         <div class="top-panel">
-            <div class="scores-board" id="scores-container">
+            <div class="scores-board">
                 <span>🎯 SCORES :</span>
                 {% if scores %}
                     {% for user, pts in scores.items() %}
@@ -301,7 +301,7 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="messenger-input-area">
-            <input type="text" name="text" id="message-input" class="message-input" placeholder="Aa /lion [message][faille logique]..." required autocomplete="off">
+            <input type="text" name="text" class="message-input" placeholder="Aa /lion [message][faille logique]..." required autocomplete="off">
             <button type="submit" class="send-btn" title="Envoyer">➤</button>
         </div>
     </form>
@@ -310,72 +310,10 @@ HTML_TEMPLATE = """
 <script>
     const cb = document.getElementById('chatbox');
     if(cb) { cb.scrollTop = cb.scrollHeight; }
-
-    // MISE À JOUR SILENCIEUSE EN ARRIÈRE-PLAN (SANS INTERROMPRE L'ÉCRITURE)
-    setInterval(async () => {
-        try {
-            let res = await fetch('/api/messages');
-            let data = await res.json();
-            
-            // Mise à jour des scores
-            let scoresHtml = '<span>🎯 SCORES :</span>';
-            for (let [user, pts] of Object.entries(data.scores)) {
-                scoresHtml += `<span><b>${user}</b> : ${pts} pts</span>`;
-            }
-            document.getElementById('scores-container').innerHTML = scoresHtml;
-
-            // Si le nombre de messages a changé, on met à jour le chat
-            if (cb.children.length !== data.messages.length) {
-                let chatHtml = '';
-                let currentUser = "{{ session.get('username', '') }}";
-                
-                data.messages.forEach((m, index) => {
-                    let isRight = (m.sender === currentUser);
-                    chatHtml += `<div class="msg-row ${isRight ? 'right' : 'left'}">
-                        <div class="avatar-circle">${m.avatar}</div>
-                        <div class="msg-content">
-                            <div class="msg-sender">${m.sender} (${m.role})</div>
-                            <div class="msg-bubble" style="background: ${m.bg_color}; border: 2px solid ${m.border_color};">
-                                <a href="/delete/${index}" class="delete-link" title="Supprimer">✕</a>`;
-                    
-                    if (m.css_card) {
-                        chatHtml += `<div class="animal-css-card" style="background: ${m.css_card.bg};">
-                            <span>${m.css_card.emoji}</span>
-                            <div class="animal-name-badge">${m.css_card.name}</div>
-                        </div>`;
-                    }
-                    
-                    chatHtml += `<div class="attack-main-text">${m.main_text}</div>`;
-                    
-                    if (m.faille_text) {
-                        chatHtml += `<div class="attack-faille-box">🔍 <b>Faille :</b> ${m.faille_text}</div>`;
-                    }
-                    
-                    if (m.comment) {
-                        chatHtml += `<div class="judge-info">${m.comment}</div>`;
-                    }
-                    
-                    chatHtml += `</div></div></div>`;
-                });
-                
-                cb.innerHTML = chatHtml;
-                cb.scrollTop = cb.scrollHeight;
-            }
-        } catch (e) {
-            console.error("Erreur de mise à jour en arrière-plan:", e);
-        }
-    }, 2500);
 </script>
 </body>
 </html>
 """
-
-@app.route('/api/messages')
-def api_messages():
-    return jsonify({
-        "messages": game_state["messages"],
-        "scores": game_state["scores"]
-    })
 
 @app.route('/')
 def index():
@@ -591,4 +529,95 @@ def send():
             if prev_power > 0 and prev_power != power:
                 if power < prev_power:
                     if has_valid_faille:
-                        comment = f"🧠 Faille validée ! Le {animal_name} terrasse le {prev_name} (-{point_change} pt adversaire, +{point_change}
+                        comment = f"🧠 Faille validée ! Le {animal_name} terrasse le {prev_name} (-{point_change} pt adversaire, +{point_change} pt toi)"
+                    else:
+                        winning_animal_name = prev_name
+                        winning_emoji = prev_emoji
+                        winning_card = prev_card
+                        comment = f"❌ Faille rejetée ! Le {prev_name} l'emporte (-{point_change} pt pour toi)"
+                        loser_player = sender
+                        winner_player = prev_name if prev_name != "aucun" else [p for p in game_state["scores"] if p != sender][0]
+                elif power > prev_power:
+                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} (-{point_change} pt adversaire, +{point_change} pt toi)"
+                else:
+                    comment = f"⚖️ Égalité parfaite. Aucun point perdu."
+                    loser_player = None
+            else:
+                comment = f"✨ Le {animal_name} prend l'avantage !"
+                loser_player = None
+
+            game_state["last_animal_power"] = power
+            game_state["last_animal_name"] = winning_animal_name
+            game_state["last_animal_emoji"] = winning_emoji
+            game_state["last_css_card"] = winning_card
+
+            if loser_player and loser_player in game_state["scores"]:
+                game_state["scores"][loser_player] -= point_change
+                if game_state["scores"][loser_player] < 0:
+                    game_state["scores"][loser_player] = 0
+
+                for p in game_state["scores"]:
+                    if p != loser_player:
+                        game_state["scores"][p] += point_change
+                        winner_player = p
+
+                if game_state["scores"][loser_player] == 0:
+                    game_state["winner"] = winner_player
+
+            game_state["messages"].append({
+                "sender": sender,
+                "role": role,
+                "avatar": winning_emoji,
+                "main_text": main_text_display,
+                "faille_text": faille_text_display,
+                "comment": comment,
+                "bg_color": bg_color,
+                "border_color": border_color,
+                "css_card": winning_card
+            })
+
+        else:
+            game_state["last_animal_power"] = 0
+            game_state["last_animal_name"] = None
+            game_state["last_animal_emoji"] = "👤"
+            game_state["last_css_card"] = None
+            comment = ""
+
+            game_state["messages"].append({
+                "sender": sender,
+                "role": role,
+                "avatar": "👤",
+                "main_text": text,
+                "faille_text": "",
+                "comment": comment,
+                "bg_color": "#3a3b3c",
+                "border_color": "#393a3b",
+                "css_card": None
+            })
+
+    return redirect(url_for('index'))
+
+@app.route('/delete/<int:index>')
+def delete_msg(index):
+    if game_state["winner"]:
+        return redirect(url_for('index'))
+    if 0 <= index < len(game_state["messages"]):
+        game_state["messages"].pop(index)
+    return redirect(url_for('index'))
+
+@app.route('/reset')
+def reset_data():
+    game_state["messages"] = []
+    game_state["scores"] = {}
+    game_state["winner"] = None
+    game_state["status"] = "PLAYING"
+    game_state["last_animal_power"] = 0
+    game_state["last_animal_name"] = None
+    game_state["last_animal_emoji"] = "👤"
+    game_state["last_css_card"] = None
+    game_state["shield_used"] = {}
+    session.clear()
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
