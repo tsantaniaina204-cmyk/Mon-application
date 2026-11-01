@@ -65,7 +65,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Discussion Gauche/Droite & Photos CSS</title>
+    <title>Chrono-Royaume - Duel d'Amour Intelligent</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -112,7 +112,6 @@ HTML_TEMPLATE = """
             background-color: #18191a; display: flex; flex-direction: column; gap: 14px; min-height: 0;
         }
         
-        /* GESTION DISCUSSIONS GAUCHE / DROITE */
         .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; }
         .msg-row.left { justify-content: flex-start; }
         .msg-row.right { justify-content: flex-end; flex-direction: row-reverse; }
@@ -131,7 +130,6 @@ HTML_TEMPLATE = """
         .msg-sender { font-size: 0.75em; color: #b0b3b8; margin-bottom: 3px; margin-left: 4px; }
         .msg-row.right .msg-sender { margin-right: 4px; margin-left: 0; text-align: right; }
         
-        /* GRANDE PHOTO DE L'ANIMAL EN CSS (FIXE ET MIGNONNE) */
         .animal-css-card {
             width: 100%; height: 140px; border-radius: 12px; margin-bottom: 8px;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -163,7 +161,6 @@ HTML_TEMPLATE = """
             border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2em; flex-shrink: 0;
         }
 
-        /* MODALE PROFIL */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 200; padding: 20px;
@@ -304,8 +301,6 @@ HTML_TEMPLATE = """
 @app.route('/')
 def index():
     show_profile_modal = 'username' not in session or not session['username']
-    
-    # Marquer les messages selon si c'est l'utilisateur actuel (pour aligner à droite ou à gauche)
     current_user = session.get('username', '')
     formatted_messages = []
     for m in game_state["messages"]:
@@ -379,7 +374,6 @@ def send():
             game_state["status"] = "PLAYING"
             return redirect(url_for('index'))
         
-        # Commande /IA
         if lower_text.startswith('/ia'):
             last_enemy_attack = "une déclaration d'amour"
             for m in reversed(game_state["messages"]):
@@ -391,8 +385,8 @@ def send():
             text = call_gemini(prompt_ia)
             lower_text = text.lower()
 
-        # 🤖 CORRECTION AUTOMATIQUE DES FAUTES PAR GEMINI
-        correction_prompt = f"Corrige uniquement les fautes de frappe et d'orthographe de ce message en conservant son sens exact et son format : '{text}'"
+        # Correction orthographique par Gemini
+        correction_prompt = f"Corrige uniquement les fautes de frappe de ce message en conservant son sens : '{text}'"
         text = call_gemini(correction_prompt)
         lower_text = text.lower()
 
@@ -404,7 +398,7 @@ def send():
 
         if lower_text.startswith('/bouclier'):
             if game_state["shield_used"].get(sender, False):
-                comment = "🛡️ Erreur : Tu a déjà utilisé ton bouclier unique !"
+                comment = "🛡️ Erreur : Tu as déjà utilisé ton bouclier unique !"
                 formatted_text = "🛡️ *Tentative de bouclier (Déjà épuisé)*"
             else:
                 game_state["shield_used"][sender] = True
@@ -425,14 +419,18 @@ def send():
             })
             return redirect(url_for('index'))
 
-        # Bestiaire complet avec grande carte CSS statique (mignonne)
-        animal_match = re.match(r'^/([a-zA-Zà-öø-ÿ]+)', lower_text)
+        # DÉTECTION SOUPLE DES ANIMAUX (Peu importe les espaces ou la casse)
+        animals_list = ["grenouille", "lion", "dragon", "tigre", "loup", "chat", "lapin", "serpent", "ours", "aigle", "phénix", "licorne"]
+        detected_animal = None
+        for a in animals_list:
+            if a in lower_text:
+                detected_animal = a
+                break
         
-        if animal_match:
-            animal_name_raw = animal_match.group(1)
+        if detected_animal or lower_text.startswith('/'):
+            animal_name_raw = detected_animal if detected_animal else lower_text.replace('/', '').split()[0]
             animal_name = animal_name_raw.capitalize()
             
-            # Base de données CSS des animaux (Grande photo fixe et mignonne)
             animal_database = {
                 "grenouille": {"emoji": "🐸", "color": "linear-gradient(135deg, #2e7d32, #81c784)", "border": "#4caf50"},
                 "lion": {"emoji": "🦁", "color": "linear-gradient(135deg, #b71c1c, #ff8a80)", "border": "#ff5252"},
@@ -473,7 +471,7 @@ def send():
                 point_change = 1
 
             parts = re.findall(r'\[(.*?)\]', text)
-            main_msg = parts[0] if len(parts) > 0 else text[len(animal_match.group(0)):].strip()
+            main_msg = parts[0] if len(parts) > 0 else text
             faille_msg = parts[1] if len(parts) > 1 else ""
 
             prev_power = game_state.get("last_animal_power", 0)
@@ -481,12 +479,14 @@ def send():
             prev_emoji = game_state.get("last_animal_emoji", "👤")
             prev_card = game_state.get("last_css_card", None)
 
-            # Jugement intelligent de la faille par Gemini
             has_valid_faille = False
-            if prev_power > 0 and power < prev_power and len(faille_msg.strip()) > 3:
-                prompt = f"Arbitre de séduction: L'animal '{animal_name}' attaque '{prev_name}' avec la faille: '{faille_msg}'. Est-ce logique et valable ? Réponds UNIQUEMENT 'OUI' ou 'NON'."
-                ans = call_gemini(prompt).upper()
-                has_valid_faille = "OUI" in ans
+            if prev_power > 0 and power < prev_power:
+                if len(faille_msg.strip()) > 2:
+                    prompt = f"Arbitre de séduction: L'animal '{animal_name}' attaque '{prev_name}' avec la faille: '{faille_msg}'. Est-ce logique ? Réponds 'OUI' ou 'NON'."
+                    ans = call_gemini(prompt).upper()
+                    has_valid_faille = "OUI" in ans
+                else:
+                    has_valid_faille = False
 
             winning_animal_name = animal_name
             winning_emoji = avatar
@@ -512,12 +512,12 @@ def send():
                         loser_player = sender
                         winner_player = prev_name if prev_name != "aucun" else [p for p in game_state["scores"] if p != sender][0]
                 elif power > prev_power:
-                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} ! Victoire du duel (adversaire : -{point_change} pt, toi : +{point_change} pt) !"
+                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} ! Victoire (adversaire : -{point_change} pt, toi : +{point_change} pt) !"
                 else:
-                    comment = f"⚖️ Égalité parfaite entre les bêtes. Aucun point perdu."
+                    comment = f"⚖️ Égalité parfaite. Aucun point perdu."
                     loser_player = None
             else:
-                comment = f"✨ Le {animal_name} prend l'avantage dans ce duel !"
+                comment = f"✨ Le {animal_name} prend l'avantage !"
                 loser_player = None
 
             game_state["last_animal_power"] = power
