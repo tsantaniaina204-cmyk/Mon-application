@@ -65,7 +65,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Duel d'Amour Stratégique</title>
+    <title>Chrono-Royaume - Duel d'Amour en Direct</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -130,7 +130,6 @@ HTML_TEMPLATE = """
         .msg-sender { font-size: 0.75em; color: #b0b3b8; margin-bottom: 3px; margin-left: 4px; }
         .msg-row.right .msg-sender { margin-right: 4px; margin-left: 0; text-align: right; }
         
-        /* GRANDE PHOTO DE L'ANIMAL EN CSS (FIXE ET MIGNONNE) */
         .animal-css-card {
             width: 100%; height: 130px; border-radius: 10px; margin-bottom: 10px;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -141,21 +140,18 @@ HTML_TEMPLATE = """
             font-size: 0.3em; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 8px; margin-top: 6px; font-weight: bold; color: #fff; text-transform: uppercase;
         }
 
-        /* TEXTE PRINCIPAL DE L'ATTAQUE (MIS EN VALEUR) */
         .attack-main-text {
             font-size: 1.05em; font-weight: bold; color: #ffffff; margin-bottom: 8px; line-height: 1.4;
         }
 
-        /* MARGE DISTINCTE POUR LA FAILLE LOGIQUE */
         .attack-faille-box {
             background: rgba(0, 0, 0, 0.35); border-left: 4px solid #00bfff;
             padding: 8px 12px; border-radius: 6px; font-size: 0.85em; color: #b0b3b8; margin-top: 6px; font-style: italic;
         }
 
         .judge-info {
-            font-size: 0.8em; color: #ffffff; background: rgba(0, 191, 255, 0.25);
-            margin-top: 8px; padding: 6px 10px; border-radius: 8px; font-weight: bold;
-            border-left: 3px solid #00bfff;
+            font-size: 0.75em; color: #00bfff; background: rgba(0, 191, 255, 0.15);
+            margin-top: 8px; padding: 5px 8px; border-radius: 6px; font-weight: bold;
         }
         .delete-link { color: #ff5252; font-size: 0.8em; text-decoration: none; float: right; margin-left: 8px; font-weight: bold; }
 
@@ -200,6 +196,12 @@ HTML_TEMPLATE = """
             background: rgba(0, 0, 0, 0.92); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; padding: 20px;
         }
     </style>
+    <!-- Actualisation automatique toutes les 3 secondes pour voir les messages en direct -->
+    <script>
+        setTimeout(function(){
+            location.reload();
+        }, 3000);
+    </script>
 </head>
 <body>
 
@@ -295,7 +297,9 @@ HTML_TEMPLATE = """
                             </div>
                             {% endif %}
 
-                            <div class="judge-info">🏆 {{ m.comment }}</div>
+                            {% if m.comment %}
+                            <div class="judge-info">{{ m.comment }}</div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -408,7 +412,7 @@ def send():
         text = call_gemini(correction_prompt)
         lower_text = text.lower()
 
-        comment = "Message normal et neutre (aucun point gagné ni perdu)."
+        comment = "" # Plus de texte inutile pour les messages normaux !
         point_change = 0
         bg_color = "#3a3b3c"
         border_color = "#393a3b"
@@ -418,12 +422,12 @@ def send():
 
         if lower_text.startswith('/bouclier'):
             if game_state["shield_used"].get(sender, False):
-                comment = "🛡️ Erreur : Tu a déjà utilisé ton bouclier unique !"
+                comment = "🛡️ Bouclier déjà épuisé !"
                 main_text_display = "🛡️ *Tentative de bouclier (Déjà épuisé)*"
             else:
                 game_state["shield_used"][sender] = True
-                comment = f"🛡️ Bouclier activé ! {sender} bloque l'attaque adverse !"
-                main_text_display = "🛡️ **BOUCLIER MAGIQUE ACTIVÉ !** Attaque bloquée !"
+                comment = f"🛡️ Bouclier activé ! Attaque bloquée !"
+                main_text_display = "🛡️ **BOUCLIER MAGIQUE ACTIVÉ !**"
                 game_state["last_animal_power"] = 0
                 game_state["last_animal_name"] = None
 
@@ -531,16 +535,16 @@ def send():
             if prev_power > 0 and prev_power != power:
                 if power < prev_power:
                     if has_valid_faille:
-                        comment = f"🧠 **Faille validée par l'IA !** Le {animal_name} terrasse le {prev_name} (-{point_change} pt adversaire, +{point_change} pt toi) !"
+                        comment = f"🧠 Faille validée ! Le {animal_name} terrasse le {prev_name} (-{point_change} pt adversaire, +{point_change} pt toi)"
                     else:
                         winning_animal_name = prev_name
                         winning_emoji = prev_emoji
                         winning_card = prev_card
-                        comment = f"❌ **Faille rejetée par l'IA (illogique)** ! Le {prev_name} l'emporte (tu perds {point_change} pt) !"
+                        comment = f"❌ Faille rejetée ! Le {prev_name} l'emporte (-{point_change} pt pour toi)"
                         loser_player = sender
                         winner_player = prev_name if prev_name != "aucun" else [p for p in game_state["scores"] if p != sender][0]
                 elif power > prev_power:
-                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} ! Victoire (adversaire : -{point_change} pt, toi : +{point_change} pt) !"
+                    comment = f"⚔️ Le {animal_name} surclasse le {prev_name} (-{point_change} pt adversaire, +{point_change} pt toi)"
                 else:
                     comment = f"⚖️ Égalité parfaite. Aucun point perdu."
                     loser_player = None
@@ -583,7 +587,7 @@ def send():
             game_state["last_animal_name"] = None
             game_state["last_animal_emoji"] = "👤"
             game_state["last_css_card"] = None
-            comment = "💙 Message normal et neutre (aucun point gagné ni perdu)."
+            comment = "" # Aucun commentaire inutile pour les messages normaux
 
             game_state["messages"].append({
                 "sender": sender,
