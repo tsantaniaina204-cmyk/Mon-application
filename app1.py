@@ -65,7 +65,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Royaume - Duel d'Amour Intelligent</title>
+    <title>Chrono-Royaume - Duel d'Amour Stratégique</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -120,29 +120,41 @@ HTML_TEMPLATE = """
             width: 34px; height: 34px; border-radius: 50%; background-color: #3a3b3c;
             display: flex; align-items: center; justify-content: center; font-size: 1.1em; flex-shrink: 0; border: 1px solid #00bfff;
         }
-        .msg-content { max-width: 80%; display: flex; flex-direction: column; }
+        .msg-content { max-width: 82%; display: flex; flex-direction: column; }
         .msg-row.right .msg-content { align-items: flex-end; }
 
         .msg-bubble {
-            color: #e4e6eb; padding: 10px 14px;
+            color: #e4e6eb; padding: 12px 16px;
             border-radius: 18px; font-size: 0.9em; word-wrap: break-word; position: relative;
         }
         .msg-sender { font-size: 0.75em; color: #b0b3b8; margin-bottom: 3px; margin-left: 4px; }
         .msg-row.right .msg-sender { margin-right: 4px; margin-left: 0; text-align: right; }
         
+        /* GRANDE PHOTO DE L'ANIMAL EN CSS (FIXE ET MIGNONNE) */
         .animal-css-card {
-            width: 100%; height: 140px; border-radius: 12px; margin-bottom: 8px;
+            width: 100%; height: 130px; border-radius: 10px; margin-bottom: 10px;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            font-size: 3.5em; border: 2px solid rgba(255,255,255,0.2);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            font-size: 3.2em; border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
         .animal-name-badge {
-            font-size: 0.3em; background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 8px; margin-top: 5px; font-weight: bold; color: #fff; text-transform: uppercase;
+            font-size: 0.3em; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 8px; margin-top: 6px; font-weight: bold; color: #fff; text-transform: uppercase;
+        }
+
+        /* TEXTE PRINCIPAL DE L'ATTAQUE (MIS EN VALEUR) */
+        .attack-main-text {
+            font-size: 1.05em; font-weight: bold; color: #ffffff; margin-bottom: 8px; line-height: 1.4;
+        }
+
+        /* MARGE DISTINCTE POUR LA FAILLE LOGIQUE */
+        .attack-faille-box {
+            background: rgba(0, 0, 0, 0.35); border-left: 4px solid #00bfff;
+            padding: 8px 12px; border-radius: 6px; font-size: 0.85em; color: #b0b3b8; margin-top: 6px; font-style: italic;
         }
 
         .judge-info {
             font-size: 0.8em; color: #ffffff; background: rgba(0, 191, 255, 0.25);
-            margin-top: 6px; padding: 6px; border-radius: 8px; font-weight: bold;
+            margin-top: 8px; padding: 6px 10px; border-radius: 8px; font-weight: bold;
             border-left: 3px solid #00bfff;
         }
         .delete-link { color: #ff5252; font-size: 0.8em; text-decoration: none; float: right; margin-left: 8px; font-weight: bold; }
@@ -275,7 +287,14 @@ HTML_TEMPLATE = """
                             </div>
                             {% endif %}
 
-                            {{ m.text }}
+                            <div class="attack-main-text">{{ m.main_text }}</div>
+
+                            {% if m.faille_text %}
+                            <div class="attack-faille-box">
+                                🔍 <b>Faille :</b> {{ m.faille_text }}
+                            </div>
+                            {% endif %}
+
                             <div class="judge-info">🏆 {{ m.comment }}</div>
                         </div>
                     </div>
@@ -284,7 +303,7 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="messenger-input-area">
-            <input type="text" name="text" class="message-input" placeholder="Aa /lion [msg][faille], /ia, /pause, /stop..." required autocomplete="off">
+            <input type="text" name="text" class="message-input" placeholder="Aa /lion [message][faille logique]..." required autocomplete="off">
             <button type="submit" class="send-btn" title="Envoyer">➤</button>
         </div>
     </form>
@@ -363,7 +382,6 @@ def send():
     if text:
         lower_text = text.lower()
 
-        # Commandes spéciales
         if lower_text == '/stop':
             game_state["status"] = "STOPPED"
             return redirect(url_for('index'))
@@ -378,7 +396,7 @@ def send():
             last_enemy_attack = "une déclaration d'amour"
             for m in reversed(game_state["messages"]):
                 if m["sender"] != sender and m["sender"] != "Système d'Arbitrage":
-                    last_enemy_attack = m["text"]
+                    last_enemy_attack = m.get("main_text", m.get("text", ""))
                     break
             
             prompt_ia = f"Joue à la place de {sender}. L'adversaire a dit: '{last_enemy_attack}'. Réponds avec une attaque animale et une faille au format: /lion [texte][faille]"
@@ -395,15 +413,17 @@ def send():
         bg_color = "#3a3b3c"
         border_color = "#393a3b"
         css_card = None
+        main_text_display = text
+        faille_text_display = ""
 
         if lower_text.startswith('/bouclier'):
             if game_state["shield_used"].get(sender, False):
-                comment = "🛡️ Erreur : Tu as déjà utilisé ton bouclier unique !"
-                formatted_text = "🛡️ *Tentative de bouclier (Déjà épuisé)*"
+                comment = "🛡️ Erreur : Tu a déjà utilisé ton bouclier unique !"
+                main_text_display = "🛡️ *Tentative de bouclier (Déjà épuisé)*"
             else:
                 game_state["shield_used"][sender] = True
                 comment = f"🛡️ Bouclier activé ! {sender} bloque l'attaque adverse !"
-                formatted_text = "🛡️ **BOUCLIER MAGIQUE ACTIVÉ !** Attaque bloquée !"
+                main_text_display = "🛡️ **BOUCLIER MAGIQUE ACTIVÉ !** Attaque bloquée !"
                 game_state["last_animal_power"] = 0
                 game_state["last_animal_name"] = None
 
@@ -411,7 +431,8 @@ def send():
                 "sender": sender,
                 "role": role,
                 "avatar": "🛡️",
-                "text": formatted_text,
+                "main_text": main_text_display,
+                "faille_text": "",
                 "comment": comment,
                 "bg_color": "#002244",
                 "border_color": "#00bfff",
@@ -419,7 +440,7 @@ def send():
             })
             return redirect(url_for('index'))
 
-        # DÉTECTION SOUPLE DES ANIMAUX (Peu importe les espaces ou la casse)
+        # Détection des animaux
         animals_list = ["grenouille", "lion", "dragon", "tigre", "loup", "chat", "lapin", "serpent", "ours", "aigle", "phénix", "licorne"]
         detected_animal = None
         for a in animals_list:
@@ -471,18 +492,25 @@ def send():
                 point_change = 1
 
             parts = re.findall(r'\[(.*?)\]', text)
-            main_msg = parts[0] if len(parts) > 0 else text
-            faille_msg = parts[1] if len(parts) > 1 else ""
+            main_text_display = parts[0] if len(parts) > 0 else text
+            faille_text_display = parts[1] if len(parts) > 1 else ""
 
             prev_power = game_state.get("last_animal_power", 0)
             prev_name = game_state.get("last_animal_name", "aucun")
             prev_emoji = game_state.get("last_animal_emoji", "👤")
             prev_card = game_state.get("last_css_card", None)
 
+            # JUGEMENT STRICT DE LA FAILLE PAR L'IA GEMINI
             has_valid_faille = False
             if prev_power > 0 and power < prev_power:
-                if len(faille_msg.strip()) > 2:
-                    prompt = f"Arbitre de séduction: L'animal '{animal_name}' attaque '{prev_name}' avec la faille: '{faille_msg}'. Est-ce logique ? Réponds 'OUI' ou 'NON'."
+                if len(faille_text_display.strip()) > 2:
+                    prompt = f"""
+                    Arbitre strict de séduction : 
+                    L'attaquant utilise un animal plus faible '{animal_name}' contre le prédateur '{prev_name}'.
+                    Il propose cette faille logique ou psychologique : '{faille_text_display}'.
+                    Cette faille est-elle spirituelle, astucieuse et fait-elle référence à une vraie faiblesse logique exploitable de cet animal ?
+                    Réponds UNIQUEMENT par 'OUI' ou 'NON'.
+                    """
                     ans = call_gemini(prompt).upper()
                     has_valid_faille = "OUI" in ans
                 else:
@@ -503,12 +531,12 @@ def send():
             if prev_power > 0 and prev_power != power:
                 if power < prev_power:
                     if has_valid_faille:
-                        comment = f"🧠 **Gemini a validé la faille !** Le {animal_name} terrasse le {prev_name} (-{point_change} pt adversaire, +{point_change} pt toi) !"
+                        comment = f"🧠 **Faille validée par l'IA !** Le {animal_name} terrasse le {prev_name} (-{point_change} pt adversaire, +{point_change} pt toi) !"
                     else:
                         winning_animal_name = prev_name
                         winning_emoji = prev_emoji
                         winning_card = prev_card
-                        comment = f"🛡️ **Gemini a rejeté la faille** ! Le {prev_name} l'emporte (tu perds {point_change} pt) !"
+                        comment = f"❌ **Faille rejetée par l'IA (illogique)** ! Le {prev_name} l'emporte (tu perds {point_change} pt) !"
                         loser_player = sender
                         winner_player = prev_name if prev_name != "aucun" else [p for p in game_state["scores"] if p != sender][0]
                 elif power > prev_power:
@@ -538,13 +566,12 @@ def send():
                 if game_state["scores"][loser_player] == 0:
                     game_state["winner"] = winner_player
 
-            formatted_text = f"🗣️ « {main_msg} »" + (f" 🔍 [FAILLE JUGÉE PAR IA : {faille_msg}]" if faille_msg else "")
-            
             game_state["messages"].append({
                 "sender": sender,
                 "role": role,
                 "avatar": winning_emoji,
-                "text": formatted_text,
+                "main_text": main_text_display,
+                "faille_text": faille_text_display,
                 "comment": comment,
                 "bg_color": bg_color,
                 "border_color": border_color,
@@ -562,7 +589,8 @@ def send():
                 "sender": sender,
                 "role": role,
                 "avatar": "👤",
-                "text": text,
+                "main_text": text,
+                "faille_text": "",
                 "comment": comment,
                 "bg_color": "#3a3b3c",
                 "border_color": "#393a3b",
